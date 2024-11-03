@@ -94,7 +94,7 @@ mp_obj_t send_color(mp_obj_t self_in, mp_obj_t lcd_cmd, mp_obj_t color) {
 
     return mp_const_none;
 }
-MP_DEFINE_CONST_FUN_OBJ_3(trans_color_obj, send_color);
+MP_DEFINE_CONST_FUN_OBJ_3(send_color_obj, send_color);
 
 mp_obj_t register_callback(mp_obj_t self_in, mp_obj_t callback) {
     bus_obj_t *self = MP_OBJ_TO_PTR(self_in);
@@ -110,3 +110,16 @@ mp_obj_t register_callback(mp_obj_t self_in, mp_obj_t callback) {
     return mp_const_none;
 }
 MP_DEFINE_CONST_FUN_OBJ_2(register_callback_obj, register_callback);
+
+mp_obj_t swap_bytes(mp_obj_t data) {
+    mp_buffer_info_t bufinfo;
+    mp_get_buffer_raise(data, &bufinfo, MP_BUFFER_READ);
+    uint16_t *buf = (uint16_t *)bufinfo.buf;
+    size_t len = bufinfo.len / 2;
+    for (size_t i = 0; i < len; i++) {
+        buf[i] = (buf[i] >> 8) | (buf[i] << 8);
+    }
+
+    return mp_const_none;
+}
+MP_DEFINE_CONST_FUN_OBJ_1(swap_bytes_obj, swap_bytes);

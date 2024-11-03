@@ -38,5 +38,6 @@ bool color_trans_done(esp_lcd_panel_io_handle_t panel_io, esp_lcd_panel_io_event
 mp_obj_t send(mp_obj_t self_in, mp_obj_t command, mp_obj_t data);
 mp_obj_t send_color(mp_obj_t self_in, mp_obj_t lcd_cmd, mp_obj_t color);
 mp_obj_t register_callback(mp_obj_t self_in, mp_obj_t callback);
+mp_obj_t swap_bytes(mp_obj_t data);
 
 #endif // __BUS_H__

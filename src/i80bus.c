@@ -136,8 +136,9 @@ static mp_obj_t i80bus_make_new(const mp_obj_type_t *type, size_t n_args, size_t
 
 static const mp_rom_map_elem_t i80bus_locals_dict_table[] = {
     {MP_ROM_QSTR(MP_QSTR_send), MP_ROM_PTR(&send)},
-    {MP_ROM_QSTR(MP_QSTR_trans_color), MP_ROM_PTR(&send_color)},
+    {MP_ROM_QSTR(MP_QSTR_send_color), MP_ROM_PTR(&send_color)},
     {MP_ROM_QSTR(MP_QSTR_register_callback), MP_ROM_PTR(&register_callback)},
+    {MP_ROM_QSTR(MP_QSTR_swap_bytes), MP_ROM_PTR(&swap_bytes)},
 };
 static MP_DEFINE_CONST_DICT(i80bus_locals_dict, i80bus_locals_dict_table);
 
