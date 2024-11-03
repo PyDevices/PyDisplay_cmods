@@ -20,20 +20,23 @@
  * THE SOFTWARE.
  */
 
-#ifndef __I80BUS_H__
-#define __I80BUS_H__
+#ifndef __BUS_H__
+#define __BUS_H__
 
 #include "py/obj.h"
 #include "esp_lcd_panel_io.h"
+#include "spibus.h"
+#include "i80bus.h"
 
 
-typedef struct _i80bus_obj_t {
-    mp_obj_base_t base;
-    esp_lcd_panel_io_handle_t io_handle;
-    mp_obj_t callback;
-    esp_lcd_i80_bus_handle_t bus_handle;
-} i80bus_obj_t;
+typedef union _bus_obj_t {
+    spibus_obj_t spi;
+    i80bus_obj_t i80;
+} bus_obj_t;
 
-extern const mp_obj_type_t i80bus_type;
+bool color_trans_done(esp_lcd_panel_io_handle_t panel_io, esp_lcd_panel_io_event_data_t *edata, void *user_ctx);
+mp_obj_t send(mp_obj_t self_in, mp_obj_t command, mp_obj_t data);
+mp_obj_t send_color(mp_obj_t self_in, mp_obj_t lcd_cmd, mp_obj_t color);
+mp_obj_t register_callback(mp_obj_t self_in, mp_obj_t callback);
 
-#endif /* __I80BUS_H__ */
+#endif // __BUS_H__

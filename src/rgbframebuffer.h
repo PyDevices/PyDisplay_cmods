@@ -20,20 +20,21 @@
  * THE SOFTWARE.
  */
 
-#ifndef __I80BUS_H__
-#define __I80BUS_H__
+#ifndef __RGBFRAMEBUFFER_H__
+#define __RGBFRAMEBUFFER_H__
 
 #include "py/obj.h"
 #include "esp_lcd_panel_io.h"
 
 
-typedef struct _i80bus_obj_t {
-    mp_obj_base_t base;
-    esp_lcd_panel_io_handle_t io_handle;
-    mp_obj_t callback;
-    esp_lcd_i80_bus_handle_t bus_handle;
-} i80bus_obj_t;
+typedef struct _rgbframebuffer_obj_t {
+    mp_obj_base_t base;                     // base class
+    esp_lcd_panel_handle_t panel_handle;    // panel handle
+    uint16_t width;                         // width of the framebuffer
+    uint16_t height;                        // height of the framebuffer
+    mp_buffer_info_t bufinfo;
+} rgbframebuffer_obj_t;
 
-extern const mp_obj_type_t i80bus_type;
+extern const mp_obj_type_t rgbframebuffer_type;
 
-#endif /* __I80BUS_H__ */
+#endif /* __RGBFRAMEBUFFER_H__ */

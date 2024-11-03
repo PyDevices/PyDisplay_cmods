@@ -1,197 +1,159 @@
-#include "esp_lcd_panel_commands.h"
+/*
+ * Modifications and additions Copyright (c) 2024 Brad Barnett, 2020-2023 Russ Hughes
+ *
+ * This file licensed under the MIT License and incorporates work covered by
+ * the following copyright and permission notice:
+ *
+ * The MIT License (MIT)
+ *
+ * Copyright (c) 2019 Ivan Belokobylskiy
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
+ */
+
 #include "esp_lcd_panel_io.h"
-#include "esp_lcd_panel_vendor.h"
 #include "esp_lcd_panel_ops.h"
-#include "soc/soc_caps.h"
 #include "driver/gpio.h"
 
 #include "py/obj.h"
 #include "py/runtime.h"
-#include "py/gc.h"
 #include "py/mphal.h"
 
-#include "pydevices.h"
+#include "bus.h"
 #include "spibus.h"
 #include <string.h>
 
-static void pydevices_spi_bus_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t kind) {
-    (void) kind;
-    pydevices_spi_bus_obj_t *self = MP_OBJ_TO_PTR(self_in);
-    mp_printf(print, "<SPI %s, sck=%d, mosi=%d, dc=%d, cs=%d, spi_mode=%d, pclk=%d, lcd_cmd_bits=%d, "
-#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(5, 0, 0)
-                     "lcd_param_bits=%d, dc_as_cmd_phase=%d, dc_low_on_data=%d, "
-#else
-                     "lcd_param_bits=%d, dc_low_on_data=%d, "
-#endif
-                     "octal_mode=%d, lsb_first=%d, swap_color_bytes=%d>",
 
-        self->name,
-        self->sclk_io_num,
-        self->mosi_io_num,
-        self->dc_gpio_num,
-        self->cs_gpio_num,
-        self->spi_mode,
-        self->pclk_hz,
-        self->lcd_cmd_bits,
-        self->lcd_param_bits,
-#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(5, 0, 0)
-        self->flags.dc_as_cmd_phase,
-#endif
-        self->flags.dc_low_on_data,
-        self->flags.octal_mode,
-        self->flags.lsb_first,
-        self->flags.swap_color_bytes);
+static void spibus_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t kind) {
+    (void) kind;
+    spibus_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    mp_printf(print, "<SPIBus id=%d>", self->spi_host);
 }
 
 ///
 /// spi_bus - Configure a SPI bus.
 ///
 /// Parameters:
-///   - spi_host: SPI host to use
-///   - sclk: GPIO used for SCLK
+///   - id: SPI host to use
+///   - baudrate: Frequency of pixel clock
+///   - polarity: Polarity
+///   - phase: Phase
+///   - bits: Bit-width of LCD parameter
+///   - lsb_first: transmit LSB bit first
+///   - sck: GPIO used for SCLK
 ///   - mosi: GPIO used for MOSI
+///   - miso: GPIO used for MISO
 ///   - dc: GPIO used to select the D/C line, set this to -1 if the D/C line not controlled by manually pulling high/low GPIO
 ///   - cs: GPIO used for CS line
-///   - spi_mode: Traditional SPI mode (0~3)
-///   - pclk_hz: Frequency of pixel clock
-///   - lcd_cmd_bits: Bit-width of LCD command
-///   - lcd_param_bits: Bit-width of LCD parameter
-///   - dc_idle_level: data/command pin level when idle
-///   - dc_as_cmd_phase: D/C line value is encoded into SPI transaction command phase
-///   - dc_low_on_data: If this flag is enabled, DC line = 0 means transfer data, DC line = 1 means transfer command; vice versa
-///   - octal_mode: transmit with octal mode (8 data lines), this mode is used to simulate Intel 8080 timing
-///   - lsb_first: transmit LSB bit first
-///   - swap_color_bytes: (bool) Swap data byte order
 ///
 
-static mp_obj_t pydevices_spi_bus_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *all_args)
-{
+static mp_obj_t spibus_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *all_args){
     enum {
-        ARG_spi_host,           // SPI host to use
-        ARG_sclk_io_num,        // GPIO used for SCLK
-        ARG_mosi_io_num,        // GPIO used for MOSI
+        ARG_id,           // SPI host to use
+        ARG_baudrate,            // Frequency of pixel clock
+        ARG_polarity,           // Traditional SPI mode (0~3)
+        ARG_phase,           // Traditional SPI mode (0~3)
+        ARG_bits,     // Bit-width of LCD parameter
+        ARG_lsb_first,          // transmit LSB bit first
+        ARG_sck,        // GPIO used for SCLK
+        ARG_mosi,        // GPIO used for MOSI
+        ARG_miso,        // GPIO used for MISO
         ARG_dc,                 // GPIO used to select the D/C line, set this to -1 if the D/C line not controlled by manually pulling high/low GPIO
         ARG_cs,                 // GPIO used for CS line
-        ARG_spi_mode,           // Traditional SPI mode (0~3)
-        ARG_pclk_hz,            // Frequency of pixel clock
-        ARG_lcd_cmd_bits,       // Bit-width of LCD command
-        ARG_lcd_param_bits,     // Bit-width of LCD parameter
-#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(5, 0, 0)
-        ARG_dc_as_cmd_phase,    // D/C line value is encoded into SPI transaction command phase
-#endif
-        ARG_dc_low_on_data,     // If this flag is enabled, DC line = 0 means transfer data, DC line = 1 means transfer command; vice versa
-        ARG_octal_mode,         // transmit with octal mode (8 data lines), this mode is used to simulate Intel 8080 timing
-        ARG_lsb_first,          // transmit LSB bit first
-        ARG_swap_color_bytes,   // Swap data byte order
-
     };
 
     static const mp_arg_t allowed_args[] = {
-        { MP_QSTR_spi_host,         MP_ARG_INT  | MP_ARG_REQUIRED,                     },
-        { MP_QSTR_sck,              MP_ARG_INT  | MP_ARG_REQUIRED,                     },
-        { MP_QSTR_mosi,             MP_ARG_INT  | MP_ARG_REQUIRED,                     },
-        { MP_QSTR_dc,               MP_ARG_INT  | MP_ARG_REQUIRED                      },
-        { MP_QSTR_cs,               MP_ARG_INT  | MP_ARG_KW_ONLY, {.u_int = -1       } },
-        { MP_QSTR_spi_mode,         MP_ARG_INT  | MP_ARG_KW_ONLY, {.u_int = -1       } },
-        { MP_QSTR_pclk,             MP_ARG_INT  | MP_ARG_KW_ONLY, {.u_int = 20000000 } },
-        { MP_QSTR_lcd_cmd_bits,     MP_ARG_INT  | MP_ARG_KW_ONLY, {.u_int = 8        } },
-        { MP_QSTR_lcd_param_bits,   MP_ARG_INT  | MP_ARG_KW_ONLY, {.u_int = 8        } },
-#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(5, 0, 0)
-        { MP_QSTR_dc_as_cmd_phase,  MP_ARG_INT  | MP_ARG_KW_ONLY, {.u_int = 0        } },
-#endif
-        { MP_QSTR_dc_low_on_data,   MP_ARG_INT  | MP_ARG_KW_ONLY, {.u_int = 0        } },
-        { MP_QSTR_octal_mode,       MP_ARG_BOOL | MP_ARG_KW_ONLY, {.u_bool = false   } },
+        { MP_QSTR_id,               MP_ARG_INT  | MP_ARG_KW_ONLY, {.u_int = 2        } },
+        { MP_QSTR_baudrate,         MP_ARG_INT  | MP_ARG_KW_ONLY, {.u_int = 24000000 } },
+        { MP_QSTR_polarity,         MP_ARG_INT  | MP_ARG_KW_ONLY, {.u_int = 0        } },
+        { MP_QSTR_phase,            MP_ARG_INT  | MP_ARG_KW_ONLY, {.u_int = 0       } },
+        { MP_QSTR_bits,             MP_ARG_INT  | MP_ARG_KW_ONLY, {.u_int = 8        } },
         { MP_QSTR_lsb_first,        MP_ARG_BOOL | MP_ARG_KW_ONLY, {.u_bool = false   } },
-        { MP_QSTR_swap_color_bytes, MP_ARG_BOOL | MP_ARG_KW_ONLY, {.u_bool = false   } },
+        { MP_QSTR_sck,              MP_ARG_INT  | MP_ARG_KW_ONLY, {.u_int = -1       } },
+        { MP_QSTR_mosi,             MP_ARG_INT  | MP_ARG_KW_ONLY, {.u_int = -1       } },
+        { MP_QSTR_miso,             MP_ARG_INT  | MP_ARG_KW_ONLY, {.u_int = -1       } },
+        { MP_QSTR_dc,               MP_ARG_INT  | MP_ARG_KW_ONLY, {.u_int = -1       } },
+        { MP_QSTR_cs,               MP_ARG_INT  | MP_ARG_KW_ONLY, {.u_int = -1       } },
     };
 
     mp_arg_val_t args[MP_ARRAY_SIZE(allowed_args)];
     mp_arg_parse_all_kw_array(n_args, n_kw, all_args, MP_ARRAY_SIZE(allowed_args), allowed_args, args);
 
-    // create new spi_bus object
-    pydevices_spi_bus_obj_t *self = m_new_obj(pydevices_spi_bus_obj_t);
-    self->base.type = &pydevices_spi_bus_type;
-    self->name = "pydevices_spi";
-    self->spi_host = args[ARG_spi_host].u_int;
-    self->sclk_io_num = args[ARG_sclk_io_num].u_int;
-    self->mosi_io_num = args[ARG_mosi_io_num].u_int;
-    self->dc_gpio_num = args[ARG_dc].u_int;
-    self->cs_gpio_num = args[ARG_cs].u_int;
-    self->spi_mode = args[ARG_spi_mode].u_int;
-    self->pclk_hz = args[ARG_pclk_hz].u_int;
-    self->lcd_cmd_bits = args[ARG_lcd_cmd_bits].u_int;
-    self->lcd_param_bits = args[ARG_lcd_param_bits].u_int;
-#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(5, 0, 0)
-    self->flags.dc_as_cmd_phase = args[ARG_dc_as_cmd_phase].u_int;
-#endif
-    self->flags.dc_low_on_data = args[ARG_dc_low_on_data].u_int;
-    self->flags.octal_mode = args[ARG_octal_mode].u_int;
-    self->flags.lsb_first = args[ARG_lsb_first].u_bool;
-    self->flags.swap_color_bytes = args[ARG_swap_color_bytes].u_bool;
-
-// spi_bus specific code goes here
+    spibus_obj_t *self = m_new_obj(spibus_obj_t);
+    self->base.type = &spibus_type;
+    self->spi_host = args[ARG_id].u_int;
 
     spi_bus_config_t buscfg = {
-        .sclk_io_num = self->sclk_io_num,
-        .mosi_io_num = self->mosi_io_num,
-        .miso_io_num = -1,
+        .sclk_io_num = args[ARG_sck].u_int,
+        .mosi_io_num = args[ARG_mosi].u_int,
+        .miso_io_num = args[ARG_miso].u_int,
         .quadwp_io_num = -1,
         .quadhd_io_num = -1,
         .max_transfer_sz = 0
     };
     ESP_ERROR_CHECK(spi_bus_initialize(self->spi_host, &buscfg, SPI_DMA_CH_AUTO));
-    esp_lcd_panel_io_handle_t io_handle = NULL;
+
     esp_lcd_panel_io_spi_config_t io_config = {
-        .dc_gpio_num = self->dc_gpio_num,
-        .cs_gpio_num = self->cs_gpio_num,
-        .pclk_hz = self->pclk_hz,
-        .spi_mode = 0,
+        .dc_gpio_num = args[ARG_dc].u_int,
+        .cs_gpio_num = args[ARG_cs].u_int,
+        .pclk_hz = args[ARG_baudrate].u_int,
+        .spi_mode = (args[ARG_polarity].u_int & 1) | ((args[ARG_phase].u_int & 1) << 1),
+        .lcd_cmd_bits = args[ARG_bits].u_int,
+        .lcd_param_bits = args[ARG_bits].u_int,
         .trans_queue_depth = 10,
-        .lcd_cmd_bits = self->lcd_cmd_bits,
-        .lcd_param_bits = self->lcd_param_bits,
         .on_color_trans_done = color_trans_done,
         .user_ctx = self,
-#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(5, 0, 0)
-        .flags.dc_as_cmd_phase = self->flags.dc_as_cmd_phase,
-#endif
-        .flags.dc_low_on_data = self->flags.dc_low_on_data,
-        .flags.octal_mode =self->flags.octal_mode,
-        .flags.lsb_first = self->flags.lsb_first
+        .flags.lsb_first = args[ARG_lsb_first].u_bool,
+        .flags.dc_low_on_data = false,
+        .flags.octal_mode = false,
     };
-
-    ESP_ERROR_CHECK(esp_lcd_new_panel_io_spi((esp_lcd_spi_bus_handle_t)self->spi_host, &io_config, &io_handle));
-    self->io_handle = io_handle;
-
-// common code goes here
+    self->io_handle = NULL;
+    ESP_ERROR_CHECK(esp_lcd_new_panel_io_spi((esp_lcd_spi_bus_handle_t)self->spi_host, &io_config, &self->io_handle));
 
     return MP_OBJ_FROM_PTR(self);
 }
 
-static const mp_rom_map_elem_t pydevices_spi_bus_locals_dict_table[] = {
-    {MP_ROM_QSTR(MP_QSTR_send), MP_ROM_PTR(&pydevices_send)},
-    {MP_ROM_QSTR(MP_QSTR_trans_color), MP_ROM_PTR(&pydevices_trans_color)},
-    {MP_ROM_QSTR(MP_QSTR_register_callback), MP_ROM_PTR(&pydevices_register_callback)},
-};
-static MP_DEFINE_CONST_DICT(pydevices_spi_bus_locals_dict, pydevices_spi_bus_locals_dict_table);
 
-#if MICROPY_OBJ_TYPE_REPR == MICROPY_OBJ_TYPE_REPR_SLOT_INDEX
+static const mp_rom_map_elem_t spibus_locals_dict_table[] = {
+    {MP_ROM_QSTR(MP_QSTR_send), MP_ROM_PTR(&send)},
+    {MP_ROM_QSTR(MP_QSTR_trans_color), MP_ROM_PTR(&send_color)},
+    {MP_ROM_QSTR(MP_QSTR_register_callback), MP_ROM_PTR(&register_callback)},
+};
+static MP_DEFINE_CONST_DICT(spibus_locals_dict, spibus_locals_dict_table);
 
 MP_DEFINE_CONST_OBJ_TYPE(
-    pydevices_spi_bus_type,
+    spibus_type,
     MP_QSTR_SPI_BUS,
     MP_TYPE_FLAG_NONE,
-    print, pydevices_spi_bus_print,
-    make_new, pydevices_spi_bus_make_new,
-    locals_dict, &pydevices_spi_bus_locals_dict);
+    print, spibus_print,
+    make_new, spibus_make_new,
+    locals_dict, &spibus_locals_dict);
 
-#else
 
-const mp_obj_type_t pydevices_spi_bus_type = {
-    {&mp_type_type},
-    .name = MP_QSTR_SPI_BUS,
-    .print = pydevices_spi_bus_print,
-    .make_new = pydevices_spi_bus_make_new,
-    .locals_dict = (mp_obj_dict_t *)&pydevices_spi_bus_locals_dict,
+static const mp_map_elem_t spibus_module_globals_table[] = {
+    {MP_ROM_QSTR(MP_QSTR___name__), MP_OBJ_NEW_QSTR(MP_QSTR_spibus)},
+    {MP_ROM_QSTR(MP_QSTR_SPIBus), (mp_obj_t)&spibus_type},
 };
+static MP_DEFINE_CONST_DICT(mp_module_spibus_globals, spibus_module_globals_table);
 
-#endif
+const mp_obj_module_t mp_module_spibus = {
+    .base = {&mp_type_module},
+    .globals = (mp_obj_dict_t *)&mp_module_spibus_globals,
+};
+MP_REGISTER_MODULE(MP_QSTR_spibus, mp_module_spibus);

@@ -1,5 +1,5 @@
 /*
- * Modifications and additions Copyright (c) 2020-2023 Russ Hughes
+ * Modifications and additions Copyright (c) 2024 Brad Barnett, 2020-2023 Russ Hughes
  *
  * This file licensed under the MIT License and incorporates work covered by
  * the following copyright and permission notice:
@@ -28,79 +28,58 @@
  */
 
 #include <stdlib.h>
-#include <math.h>
 #include <stdio.h>
 #include <string.h>
 
 #include "esp_err.h"
 #include "esp_log.h"
 
-#include "esp_lcd_panel_commands.h"
 #include "esp_lcd_panel_io.h"
-#include "esp_lcd_panel_vendor.h"
 #include "esp_lcd_panel_ops.h"
-#include "soc/soc_caps.h"
 #include "driver/gpio.h"
-#include "driver/dedic_gpio.h"
 
 #include "py/obj.h"
-#include "py/objstr.h"
-#include "py/objmodule.h"
 #include "py/runtime.h"
-#include "py/builtin.h"
 #include "py/mphal.h"
 
-// Fix for MicroPython > 1.21 https://github.com/ricksorensen
-#if MICROPY_VERSION_MAJOR >= 1 && MICROPY_VERSION_MINOR > 21
-#include "extmod/modmachine.h"
-#else
-#include "extmod/machine_spi.h"
-#endif
-
-#include "pydevices.h"
-#include "i80bus.h"
-#include "spibus.h"
-
-#define TAG "PYDEVICES"
+#include "bus.h"
 
 
-//
 // flag to indicate an esp_lcd_panel_io_tx_color operation is in progress
-//
-
 static volatile bool color_trans_active = false;
 
 bool color_trans_done(esp_lcd_panel_io_handle_t panel_io, esp_lcd_panel_io_event_data_t *edata, void *user_ctx) {
-    pydevices_spi_bus_obj_t *self = MP_OBJ_TO_PTR(user_ctx);
-    if (self->callback != mp_const_none) {
-        mp_call_function_0(self->callback);
+    bus_obj_t *self = MP_OBJ_TO_PTR(user_ctx);
+    mp_obj_t callback = (self->spi.base.type == &spibus_type) ? self->spi.callback : self->i80.callback;
+    if (callback != mp_const_none) {
+        mp_call_function_0(callback);
     }
     color_trans_active = false;
     return false;
 }
 
-mp_obj_t pydevices_send(mp_obj_t self_in, mp_obj_t command, mp_obj_t data) {
-    pydevices_spi_bus_obj_t *self = MP_OBJ_TO_PTR(self_in);
+mp_obj_t send(mp_obj_t self_in, mp_obj_t command, mp_obj_t data) {
+    bus_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    esp_lcd_panel_io_handle_t io_handle = (self->spi.base.type == &spibus_type) ? self->spi.io_handle : self->i80.io_handle;
 
     if (command != mp_const_none) {
         int cmd = mp_obj_get_int(command);
-        // Send command using ESP-IDF functions
-        esp_lcd_panel_io_tx_param(self->io_handle, cmd, NULL, 0);
+        esp_lcd_panel_io_tx_param(io_handle, cmd, NULL, 0);
     }
 
     if (data != mp_const_none) {
         mp_buffer_info_t bufinfo;
         mp_get_buffer_raise(data, &bufinfo, MP_BUFFER_READ);
-        // Send data using ESP-IDF functions
-        esp_lcd_panel_io_tx_param(self->io_handle, 0, bufinfo.buf, bufinfo.len);
+        esp_lcd_panel_io_tx_param(io_handle, 0, bufinfo.buf, bufinfo.len);
     }
 
     return mp_const_none;
 }
-MP_DEFINE_CONST_FUN_OBJ_3(pydevices_send_obj, pydevices_send);
+MP_DEFINE_CONST_FUN_OBJ_3(send_obj, send);
 
-mp_obj_t pydevices_trans_color(mp_obj_t self_in, mp_obj_t lcd_cmd, mp_obj_t color) {
-    pydevices_spi_bus_obj_t *self = MP_OBJ_TO_PTR(self_in);
+mp_obj_t send_color(mp_obj_t self_in, mp_obj_t lcd_cmd, mp_obj_t color) {
+    bus_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    esp_lcd_panel_io_handle_t io_handle = (self->spi.base.type == &spibus_type) ? self->spi.io_handle : self->i80.io_handle;
     int cmd = mp_obj_get_int(lcd_cmd);
 
     mp_buffer_info_t bufinfo;
@@ -111,40 +90,23 @@ mp_obj_t pydevices_trans_color(mp_obj_t self_in, mp_obj_t lcd_cmd, mp_obj_t colo
     }
     color_trans_active = true;
 
-    esp_lcd_panel_io_tx_color(self->io_handle, cmd, buf, bufinfo.len);
+    esp_lcd_panel_io_tx_color(io_handle, cmd, buf, bufinfo.len);
 
     return mp_const_none;
 }
-MP_DEFINE_CONST_FUN_OBJ_3(pydevices_trans_color_obj, pydevices_trans_color);
+MP_DEFINE_CONST_FUN_OBJ_3(trans_color_obj, send_color);
 
-mp_obj_t pydevices_register_callback(mp_obj_t self_in, mp_obj_t callback) {
-    pydevices_spi_bus_obj_t *self = MP_OBJ_TO_PTR(self_in);
+mp_obj_t register_callback(mp_obj_t self_in, mp_obj_t callback) {
+    bus_obj_t *self = MP_OBJ_TO_PTR(self_in);
     // check to make sure callback is a micropython callable or None
     if (!mp_obj_is_callable(callback) && callback != mp_const_none) {
         mp_raise_ValueError("callback must be a callable object or None");
     }
-    self->callback = callback;
+    if (self->spi.base.type == &spibus_type) {
+        self->spi.callback = callback;
+    } else {
+        self->i80.callback = callback;
+    }
     return mp_const_none;
 }
-MP_DEFINE_CONST_FUN_OBJ_2(pydevices_register_callback_obj, pydevices_register_callback);
-
-static const mp_map_elem_t pydevices_module_globals_table[] = {
-    {MP_ROM_QSTR(MP_QSTR___name__), MP_OBJ_NEW_QSTR(MP_QSTR_pydevices)},
-    {MP_ROM_QSTR(MP_QSTR_I80_BUS), (mp_obj_t)&pydevices_i80_bus_type},
-    {MP_ROM_QSTR(MP_QSTR_SPIBus), (mp_obj_t)&pydevices_spi_bus_type},
-};
-
-static MP_DEFINE_CONST_DICT(mp_module_pydevices_globals, pydevices_module_globals_table);
-
-const mp_obj_module_t mp_module_pydevices = {
-    .base = {&mp_type_module},
-    .globals = (mp_obj_dict_t *)&mp_module_pydevices_globals,
-};
-
-// use the following for older versions of MicroPython
-
-#if MICROPY_VERSION >= 0x011300                     // MicroPython 1.19 or later
-MP_REGISTER_MODULE(MP_QSTR_pydevices, mp_module_pydevices);
-#else
-MP_REGISTER_MODULE(MP_QSTR_pydevices, mp_module_pydevices, MODULE_ESPLCD_ENABLE);
-#endif
+MP_DEFINE_CONST_FUN_OBJ_2(register_callback_obj, register_callback);
