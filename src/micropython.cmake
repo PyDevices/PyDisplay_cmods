@@ -5,19 +5,20 @@ add_library(usermod_rgbframebuffer INTERFACE)
 
 # Add our source files to the lib
 target_sources(usermod_spibus INTERFACE
-    ${CMAKE_CURRENT_LIST_DIR}/bus.c
     ${CMAKE_CURRENT_LIST_DIR}/spibus.c
+    ${CMAKE_CURRENT_LIST_DIR}/bus.c
     )
 
 # Add our source files to the lib
 target_sources(usermod_i80bus INTERFACE
-    ${CMAKE_CURRENT_LIST_DIR}/bus.c
     ${CMAKE_CURRENT_LIST_DIR}/i80bus.c
+    ${CMAKE_CURRENT_LIST_DIR}/bus.c
     )
 
 # Add our source files to the lib
 target_sources(usermod_rgbframebuffer INTERFACE
     ${CMAKE_CURRENT_LIST_DIR}/rgbframebuffer.c
+    ${CMAKE_CURRENT_LIST_DIR}/bus.c
     )
 
 # Add the current directory as an include directory.
