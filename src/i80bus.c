@@ -39,12 +39,6 @@
 #include <string.h>
 
 
-static void i80bus_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t kind) {
-    (void) kind;
-    (void) self_in;
-    mp_printf(print, "<I80Bus>");
-}
-
 /// i80bus
 /// Configure a i8080 parallel bus.
 ///
@@ -77,7 +71,7 @@ static mp_obj_t i80bus_make_new(const mp_obj_type_t *type, size_t n_args, size_t
     mp_arg_val_t args[MP_ARRAY_SIZE(allowed_args)];
     mp_arg_parse_all_kw_array(n_args, n_kw, all_args, MP_ARRAY_SIZE(allowed_args), allowed_args, args);
 
-    i80bus_obj_t *self = m_new_obj(i80bus_obj_t);
+    bus_obj_t *self = m_new_obj(bus_obj_t);
     self->base.type = &i80bus_type;
 
     mp_obj_tuple_t *data_pins = MP_OBJ_TO_PTR(args[ARG_data].u_obj);
@@ -102,8 +96,8 @@ static mp_obj_t i80bus_make_new(const mp_obj_type_t *type, size_t n_args, size_t
     };
     memcpy(bus_config.data_gpio_nums, data_gpio_nums, sizeof(data_gpio_nums));
 
-    self->bus_handle = NULL;
-    ESP_ERROR_CHECK(esp_lcd_new_i80_bus(&bus_config, &self->bus_handle));
+    esp_lcd_i80_bus_handle_t bus_handle = NULL;
+    ESP_ERROR_CHECK(esp_lcd_new_i80_bus(&bus_config, &bus_handle));
 
     esp_lcd_panel_io_i80_config_t io_config = {
         .cs_gpio_num = args[ARG_cs].u_int,
@@ -128,17 +122,22 @@ static mp_obj_t i80bus_make_new(const mp_obj_type_t *type, size_t n_args, size_t
         }
     };
     self->io_handle = NULL;
-    ESP_ERROR_CHECK(esp_lcd_new_panel_io_i80(self->bus_handle, &io_config, &self->io_handle));
+    ESP_ERROR_CHECK(esp_lcd_new_panel_io_i80(bus_handle, &io_config, &self->io_handle));
 
     return MP_OBJ_FROM_PTR(self);
 }
 
 
+MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(i80bus_send_obj, 1, 3, send);
+MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(i80bus_send_color_obj, 1, 3, send_color);
+MP_DEFINE_CONST_FUN_OBJ_2(i80bus_register_callback_obj, register_callback);
+MP_DEFINE_CONST_FUN_OBJ_2(i80bus_swap_bytes_obj, swap_bytes);
+
 static const mp_rom_map_elem_t i80bus_locals_dict_table[] = {
-    {MP_ROM_QSTR(MP_QSTR_send), MP_ROM_PTR(&send)},
-    {MP_ROM_QSTR(MP_QSTR_send_color), MP_ROM_PTR(&send_color)},
-    {MP_ROM_QSTR(MP_QSTR_register_callback), MP_ROM_PTR(&register_callback)},
-    {MP_ROM_QSTR(MP_QSTR_swap_bytes), MP_ROM_PTR(&swap_bytes)},
+    {MP_ROM_QSTR(MP_QSTR_send), MP_ROM_PTR(&i80bus_send_obj)},
+    {MP_ROM_QSTR(MP_QSTR_send_color), MP_ROM_PTR(&i80bus_send_color_obj)},
+    {MP_ROM_QSTR(MP_QSTR_register_callback), MP_ROM_PTR(&i80bus_register_callback_obj)},
+    {MP_ROM_QSTR(MP_QSTR_swap_bytes), MP_ROM_PTR(&i80bus_swap_bytes_obj)},
 };
 static MP_DEFINE_CONST_DICT(i80bus_locals_dict, i80bus_locals_dict_table);
 
@@ -146,7 +145,6 @@ MP_DEFINE_CONST_OBJ_TYPE(
     i80bus_type,
     MP_QSTR_I80_BUS,
     MP_TYPE_FLAG_NONE,
-    print, i80bus_print,
     make_new, i80bus_make_new,
     locals_dict, &i80bus_locals_dict);
 

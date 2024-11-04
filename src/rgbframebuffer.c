@@ -64,10 +64,6 @@ fb.refresh()
 #include "rgbframebuffer.h"
 #include "bus.h"
 
-static void rgbframebuffer_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t kind) {
-    rgbframebuffer_obj_t *self = MP_OBJ_TO_PTR(self_in);
-    mp_printf(print, "<RGBFrameBuffer %d x %d>", self->width, self->height);
-}
 
 static mp_obj_t rgbframebuffer_refresh(mp_obj_t self_in, mp_obj_t buffer){
     rgbframebuffer_obj_t *self = MP_OBJ_TO_PTR(self_in);
@@ -79,6 +75,25 @@ static mp_obj_t rgbframebuffer_refresh(mp_obj_t self_in, mp_obj_t buffer){
     return mp_const_none;
 }
 MP_DEFINE_CONST_FUN_OBJ_2(rgbframebuffer_refresh_obj, rgbframebuffer_refresh);
+
+static mp_int_t rgbframebuffer_get_buffer(mp_obj_t self_in, mp_buffer_info_t *bufinfo, mp_uint_t flags) {
+    rgbframebuffer_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    *bufinfo = self->bufinfo;
+    bufinfo->typecode = 'H';
+    return 0;
+}
+
+mp_obj_t rgbframebuffer_attr(mp_obj_t self_in, qstr attr, mp_obj_t *dest) {
+    rgbframebuffer_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    if (dest[0] == MP_OBJ_NULL) {
+        if (attr == MP_QSTR_width) {
+            dest[0] = MP_OBJ_NEW_SMALL_INT(self->width);
+        } else if (attr == MP_QSTR_height) {
+            dest[0] = MP_OBJ_NEW_SMALL_INT(self->height);
+        }
+    }
+    return mp_const_none;
+}
 
 static mp_obj_t rgbframebuffer_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *all_args) {
     enum { ARG_de, ARG_vsync, ARG_hsync, ARG_dclk, ARG_red, ARG_green, ARG_blue, ARG_frequency, ARG_width, ARG_height, ARG_hsync_pulse_width, ARG_hsync_front_porch, ARG_hsync_back_porch,
@@ -205,28 +220,12 @@ static mp_obj_t rgbframebuffer_make_new(const mp_obj_type_t *type, size_t n_args
     return self;
 }
 
-static mp_int_t rgbframebuffer_get_buffer(mp_obj_t self_in, mp_buffer_info_t *bufinfo, mp_uint_t flags) {
-    rgbframebuffer_obj_t *self = MP_OBJ_TO_PTR(self_in);
-    *bufinfo = self->bufinfo;
-    bufinfo->typecode = 'H';
-    return 0;
-}
 
-mp_obj_t rgbframebuffer_attr(mp_obj_t self_in, qstr attr, mp_obj_t *dest) {
-    rgbframebuffer_obj_t *self = MP_OBJ_TO_PTR(self_in);
-    if (dest[0] == MP_OBJ_NULL) {
-        if (attr == MP_QSTR_width) {
-            dest[0] = MP_OBJ_NEW_SMALL_INT(self->width);
-        } else if (attr == MP_QSTR_height) {
-            dest[0] = MP_OBJ_NEW_SMALL_INT(self->height);
-        }
-    }
-    return mp_const_none;
-}
+MP_DEFINE_CONST_FUN_OBJ_2(rgbframebuffer_swap_bytes_obj, swap_bytes);
 
 static const mp_rom_map_elem_t rgbframebuffer_locals_dict_table[] = {
     {MP_ROM_QSTR(MP_QSTR_refresh), MP_ROM_PTR(&rgbframebuffer_refresh_obj)},
-    {MP_ROM_QSTR(MP_QSTR_swap_bytes), MP_ROM_PTR(&swap_bytes)},
+    {MP_ROM_QSTR(MP_QSTR_swap_bytes), MP_ROM_PTR(&rgbframebuffer_swap_bytes_obj)},
 };
 static MP_DEFINE_CONST_DICT(rgbframebuffer_locals_dict, rgbframebuffer_locals_dict_table);
 
@@ -234,11 +233,11 @@ MP_DEFINE_CONST_OBJ_TYPE(
     rgbframebuffer_type,
     MP_QSTR_RGBFrameBuffer,
     MP_TYPE_FLAG_HAS_SPECIAL_ACCESSORS,
-    print, rgbframebuffer_print,
     make_new, rgbframebuffer_make_new,
     locals_dict, &rgbframebuffer_locals_dict,
     buffer, rgbframebuffer_get_buffer,
     attr, rgbframebuffer_attr);
+
 
 static const mp_map_elem_t rgbframebuffer_module_globals_table[] = {
     {MP_ROM_QSTR(MP_QSTR___name__), MP_OBJ_NEW_QSTR(MP_QSTR_rgbframebuffer)},

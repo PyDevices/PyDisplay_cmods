@@ -40,12 +40,6 @@
 #include <string.h>
 
 
-static void spibus_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t kind) {
-    (void) kind;
-    spibus_obj_t *self = MP_OBJ_TO_PTR(self_in);
-    mp_printf(print, "<SPIBus id=%d>", self->spi_host);
-}
-
 ///
 /// spi_bus - Configure a SPI bus.
 ///
@@ -95,9 +89,9 @@ static mp_obj_t spibus_make_new(const mp_obj_type_t *type, size_t n_args, size_t
     mp_arg_val_t args[MP_ARRAY_SIZE(allowed_args)];
     mp_arg_parse_all_kw_array(n_args, n_kw, all_args, MP_ARRAY_SIZE(allowed_args), allowed_args, args);
 
-    spibus_obj_t *self = m_new_obj(spibus_obj_t);
+    bus_obj_t *self = m_new_obj(bus_obj_t);
     self->base.type = &spibus_type;
-    self->spi_host = args[ARG_id].u_int;
+    int spi_host = args[ARG_id].u_int;
 
     spi_bus_config_t buscfg = {
         .sclk_io_num = args[ARG_sck].u_int,
@@ -107,7 +101,7 @@ static mp_obj_t spibus_make_new(const mp_obj_type_t *type, size_t n_args, size_t
         .quadhd_io_num = -1,
         .max_transfer_sz = 0
     };
-    ESP_ERROR_CHECK(spi_bus_initialize(self->spi_host, &buscfg, SPI_DMA_CH_AUTO));
+    ESP_ERROR_CHECK(spi_bus_initialize(spi_host, &buscfg, SPI_DMA_CH_AUTO));
 
     esp_lcd_panel_io_spi_config_t io_config = {
         .dc_gpio_num = args[ARG_dc].u_int,
@@ -124,17 +118,22 @@ static mp_obj_t spibus_make_new(const mp_obj_type_t *type, size_t n_args, size_t
         .flags.octal_mode = false,
     };
     self->io_handle = NULL;
-    ESP_ERROR_CHECK(esp_lcd_new_panel_io_spi((esp_lcd_spi_bus_handle_t)self->spi_host, &io_config, &self->io_handle));
+    ESP_ERROR_CHECK(esp_lcd_new_panel_io_spi((esp_lcd_spi_bus_handle_t)spi_host, &io_config, &self->io_handle));
 
     return MP_OBJ_FROM_PTR(self);
 }
 
 
+MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(spibus_send_obj, 1, 3, send);
+MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(spibus_send_color_obj, 1, 3, send_color);
+MP_DEFINE_CONST_FUN_OBJ_2(spibus_register_callback_obj, register_callback);
+MP_DEFINE_CONST_FUN_OBJ_2(spibus_swap_bytes_obj, swap_bytes);
+
 static const mp_rom_map_elem_t spibus_locals_dict_table[] = {
-    {MP_ROM_QSTR(MP_QSTR_send), MP_ROM_PTR(&send)},
-    {MP_ROM_QSTR(MP_QSTR_send_color), MP_ROM_PTR(&send_color)},
-    {MP_ROM_QSTR(MP_QSTR_register_callback), MP_ROM_PTR(&register_callback)},
-    {MP_ROM_QSTR(MP_QSTR_swap_bytes), MP_ROM_PTR(&swap_bytes)},
+    {MP_ROM_QSTR(MP_QSTR_send), MP_ROM_PTR(&spibus_send_obj)},
+    {MP_ROM_QSTR(MP_QSTR_send_color), MP_ROM_PTR(&spibus_send_color_obj)},
+    {MP_ROM_QSTR(MP_QSTR_register_callback), MP_ROM_PTR(&spibus_register_callback_obj)},
+    {MP_ROM_QSTR(MP_QSTR_swap_bytes), MP_ROM_PTR(&spibus_swap_bytes_obj)},
 };
 static MP_DEFINE_CONST_DICT(spibus_locals_dict, spibus_locals_dict_table);
 
@@ -142,7 +141,6 @@ MP_DEFINE_CONST_OBJ_TYPE(
     spibus_type,
     MP_QSTR_SPI_BUS,
     MP_TYPE_FLAG_NONE,
-    print, spibus_print,
     make_new, spibus_make_new,
     locals_dict, &spibus_locals_dict);
 
