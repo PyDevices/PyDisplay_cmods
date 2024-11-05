@@ -1,7 +1,7 @@
 {
     "C_Cpp.default.compilerPath": "/usr/bin/gcc",
     "files.associations": {
-        "bus.h": "c"
+        "common.h": "c"
     }
 
 }

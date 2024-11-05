@@ -35,8 +35,8 @@
 #include "py/runtime.h"
 #include "py/mphal.h"
 
-#include "bus.h"
-#include "spibus.h"
+#include "common.h"
+#include "spicommon.h"
 #include <string.h>
 
 

@@ -34,8 +34,8 @@
 #include "py/obj.h"
 #include "py/runtime.h"
 
-#include "bus.h"
-#include "i80bus.h"
+#include "common.h"
+#include "i80common.h"
 #include <string.h>
 
 

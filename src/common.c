@@ -41,7 +41,7 @@
 #include "modnetwork.h"
 #include "mpthreadport.h"
 
-#include "bus.h"
+#include "common.h"
 
 // flag to indicate an esp_lcd_panel_io_tx_color operation is in progress
 static volatile bool color_trans_active = false;

@@ -62,7 +62,7 @@ fb.refresh()
 #include "py/mphal.h"
 
 #include "rgbframebuffer.h"
-#include "bus.h"
+#include "common.h"
 
 
 static mp_obj_t rgbframebuffer_refresh(mp_obj_t self_in, mp_obj_t buffer){
