@@ -1,2 +1,2 @@
-# esp_lcd
-ESP_LCD Drivers for MicroPython
+# busdrivers
+Bus Drivers for MicroPython written in C with ESP_LCD
