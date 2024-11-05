@@ -53,7 +53,6 @@ static volatile bool color_trans_active = false;
 // Can't use mp_sched_schedule because lvgl won't yield to give micropython a chance to run
 // Must run Micropython in ISR itself.
 // Called in ISR context!
-// removed mp_obj_t arg because we aren't passing an argument to the callback
 
 static inline void cb_isr(mp_obj_t cb) {
 
@@ -62,32 +61,24 @@ static inline void cb_isr(mp_obj_t cb) {
     // Calling micropython from ISR
     // See: https://github.com/micropython/micropython/issues/4895
 
-    void *old_state = mp_thread_get_state();
+    void *state_past = mp_thread_get_state();
+    mp_state_thread_t state_next; // local thread state for the ISR
+    mp_thread_set_state(&state_next);
 
-    mp_state_thread_t ts; // local thread state for the ISR
-    mp_thread_set_state(&ts);
-    mp_stack_set_top((void*)sp); // need to include in root-pointer scan
-    mp_stack_set_limit(512); // tune based on ISR thread stack size was (configIDLE_TASK_STACK_SIZE - 1024)
+    mp_stack_set_top(&state_next + 1); // need to include in root-pointer scan
+    mp_stack_set_limit(1024); // tune based on ISR thread stack size was (configIDLE_TASK_STACK_SIZE - 1024)
+
     mp_locals_set(mp_state_ctx.thread.dict_locals); // use main thread's locals
     mp_globals_set(mp_state_ctx.thread.dict_globals); // use main thread's globals
 
     mp_sched_lock(); // prevent VM from switching to another MicroPython thread
     gc_lock(); // prevent memory allocation
 
-    nlr_buf_t nlr;
-    if (nlr_push(&nlr) == 0) {
-        mp_call_function_0(cb);  // changed to mp_call_function_0 and removed the arg
-        nlr_pop();
-    } else {
-        // Uncaught exception in IRQ callback handler
-        mp_obj_print_exception(&mp_plat_print, MP_OBJ_FROM_PTR(nlr.ret_val));  // changed to &mp_plat_print to fit this context
-    }
+    mp_call_function_0(cb);  // changed to mp_call_function_0 and removed the arg
 
     gc_unlock();
     mp_sched_unlock();
-
-    mp_thread_set_state(old_state);
-    mp_hal_wake_main_task_from_isr();
+    mp_thread_set_state(state_past);
 }
 
 bool color_trans_done(esp_lcd_panel_io_handle_t panel_io, esp_lcd_panel_io_event_data_t *edata, void *user_ctx) {
