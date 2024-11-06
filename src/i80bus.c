@@ -35,7 +35,7 @@
 #include "py/runtime.h"
 
 #include "common.h"
-#include "i80common.h"
+#include "i80bus.h"
 #include <string.h>
 
 
@@ -105,7 +105,7 @@ static mp_obj_t i80bus_make_new(const mp_obj_type_t *type, size_t n_args, size_t
         .lcd_cmd_bits = 8,
         .lcd_param_bits = 8,
         .trans_queue_depth = 10,
-        .on_color_trans_done = color_trans_done,
+        // .on_color_trans_done = color_trans_done,
         .user_ctx = self,
         .dc_levels = {
             .dc_data_level = 1,

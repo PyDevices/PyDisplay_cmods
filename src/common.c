@@ -46,46 +46,11 @@
 // flag to indicate an esp_lcd_panel_io_tx_color operation is in progress
 static volatile bool color_trans_active = false;
 
-// cb_isr function taken directly from:
-// https://github.com/lvgl/lv_binding_micropython/blob/master/driver/esp32/espidf.c
-// Requires CONFIG_FREERTOS_INTERRUPT_BACKTRACE=n in sdkconfig
-//
-// Can't use mp_sched_schedule because lvgl won't yield to give micropython a chance to run
-// Must run Micropython in ISR itself.
-// Called in ISR context!
-
-static inline void cb_isr(mp_obj_t cb) {
-
-    volatile uint32_t sp = (uint32_t)esp_cpu_get_sp(); // was (uint32_t)get_sp();
-
-    // Calling micropython from ISR
-    // See: https://github.com/micropython/micropython/issues/4895
-
-    void *state_past = mp_thread_get_state();
-    mp_state_thread_t state_next; // local thread state for the ISR
-    mp_thread_set_state(&state_next);
-
-    mp_stack_set_top(&state_next + 1); // need to include in root-pointer scan
-    mp_stack_set_limit(1024); // tune based on ISR thread stack size was (configIDLE_TASK_STACK_SIZE - 1024)
-
-    mp_locals_set(mp_state_ctx.thread.dict_locals); // use main thread's locals
-    mp_globals_set(mp_state_ctx.thread.dict_globals); // use main thread's globals
-
-    mp_sched_lock(); // prevent VM from switching to another MicroPython thread
-    gc_lock(); // prevent memory allocation
-
-    mp_call_function_0(cb);  // changed to mp_call_function_0 and removed the arg
-
-    gc_unlock();
-    mp_sched_unlock();
-    mp_thread_set_state(state_past);
-}
-
 bool color_trans_done(esp_lcd_panel_io_handle_t panel_io, esp_lcd_panel_io_event_data_t *edata, void *user_ctx) {
-    bus_obj_t *self = (bus_obj_t *)user_ctx;
-    if (mp_obj_is_callable(self->callback)) {
-        cb_isr(self->callback);
-    }
+    // bus_obj_t *self = (bus_obj_t *)user_ctx;
+    // if (mp_obj_is_callable(self->callback)) {
+    //     cb_isr(self->callback);
+    // }
     color_trans_active = false;
     return false;
 }
@@ -128,9 +93,9 @@ mp_obj_t send_color(size_t n_args, const mp_obj_t *args) {
         len = bufinfo.len;
     }
 
-    while (color_trans_active) {
-    }
-    color_trans_active = true;
+    // while (color_trans_active) {
+    // }
+    // color_trans_active = true;
 
     esp_lcd_panel_io_tx_color(self->io_handle, cmd, buf, len);
 

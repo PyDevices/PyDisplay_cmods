@@ -36,7 +36,7 @@
 #include "py/mphal.h"
 
 #include "common.h"
-#include "spicommon.h"
+#include "spibus.h"
 #include <string.h>
 
 
@@ -111,7 +111,7 @@ static mp_obj_t spibus_make_new(const mp_obj_type_t *type, size_t n_args, size_t
         .lcd_cmd_bits = args[ARG_bits].u_int,
         .lcd_param_bits = args[ARG_bits].u_int,
         .trans_queue_depth = 10,
-        .on_color_trans_done = color_trans_done,
+        // .on_color_trans_done = color_trans_done,
         .user_ctx = self,
         .flags.lsb_first = args[ARG_lsb_first].u_bool,
         .flags.dc_low_on_data = false,
