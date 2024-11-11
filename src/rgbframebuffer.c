@@ -4,52 +4,6 @@
  * SPDX-License-Identifier: MIT
  */
 
-/*
- * Implements a MicroPython class RGBFrameBuffer that can be used to draw on an RGB LCD panel.
- * Appears as an array.array or bytearray object in Python.
- * The color_depth is 16 bits per pixel (RGB565), so the array is 2 * width * height bytes long.
- * Methods:
- * - refresh: refresh the framebuffer
- * Attributes:
- * - width: width of the framebuffer
- * - height: height of the framebuffer
- * Usage:
- * 
-from rgbframebuffer import RGBFrameBuffer
-
-tft_pins = {
-    "de": 17,
-    "vsync": 3,
-    "hsync": 46,
-    "dclk": 9,
-    "red": (1, 2, 42, 41, 40),
-    "green": (21, 47, 48, 45, 38, 39),
-    "blue": (10, 11, 12, 13, 14),
-}
-
-tft_timings = {
-    "frequency": 16_000_000,
-    "width": 720,
-    "height": 720,
-    "hsync_pulse_width": 2,
-    "hsync_front_porch": 46,
-    "hsync_back_porch": 44,
-    "vsync_pulse_width": 2,
-    "vsync_front_porch": 16,
-    "vsync_back_porch": 18,
-    "hsync_idle_low": False,
-    "vsync_idle_low": False,
-    "de_idle_high": False,
-    "pclk_active_high": False,
-    "pclk_idle_high": False,
-}
-
-fb = RGBFrameBuffer(**tft_pins, **tft_timings, auto_refresh=True)
-mv = memoryview(fb)
-mv[0] = 0x07E0
-fb.refresh()
- * 
- */
 
 #include <stdio.h>
 #include "esp_lcd_panel_ops.h"
@@ -64,6 +18,8 @@ fb.refresh()
 #include "rgbframebuffer.h"
 #include "common.h"
 
+
+static const char *TAG = "rgbframebuffer";
 
 static mp_obj_t rgbframebuffer_refresh(mp_obj_t self_in, mp_obj_t buffer){
     rgbframebuffer_obj_t *self = MP_OBJ_TO_PTR(self_in);
@@ -126,11 +82,15 @@ static mp_obj_t rgbframebuffer_make_new(const mp_obj_type_t *type, size_t n_args
     mp_arg_val_t args[MP_ARRAY_SIZE(allowed_args)];
     mp_arg_parse_all_kw_array(n_args, n_kw, all_args, MP_ARRAY_SIZE(allowed_args), allowed_args, args);
 
+    mp_printf(mp_sys_stdout_print, "RGBFrameBuffer(de=%d, vsync=%d, hsync=%d, dclk=%d, red=%p, green=%p, blue=%p, frequency=%d, width=%d, height=%d, hsync_pulse_width=%d, hsync_front_porch=%d, hsync_back_porch=%d, vsync_pulse_width=%d, vsync_front_porch=%d, vsync_back_porch=%d, hsync_idle_low=%d, vsync_idle_low=%d, de_idle_high=%d, pclk_active_high=%d, pclk_idle_high=%d)\n",
+        args[ARG_de].u_int, args[ARG_vsync].u_int, args[ARG_hsync].u_int, args[ARG_dclk].u_int, args[ARG_red].u_obj, args[ARG_green].u_obj, args[ARG_blue].u_obj, args[ARG_frequency].u_int, args[ARG_width].u_int, args[ARG_height].u_int, args[ARG_hsync_pulse_width].u_int, args[ARG_hsync_front_porch].u_int, args[ARG_hsync_back_porch].u_int, args[ARG_vsync_pulse_width].u_int, args[ARG_vsync_front_porch].u_int, args[ARG_vsync_back_porch].u_int, args[ARG_hsync_idle_low].u_bool, args[ARG_vsync_idle_low].u_bool, args[ARG_de_idle_high].u_bool, args[ARG_pclk_active_high].u_bool, args[ARG_pclk_idle_high].u_bool);
+
     rgbframebuffer_obj_t *self = m_new_obj(rgbframebuffer_obj_t);
     self->base.type = &rgbframebuffer_type;
     self->width = args[ARG_width].u_int;
     self->height = args[ARG_height].u_int;
     
+    ESP_LOGI(TAG, "Install RGB LCD panel driver");
     esp_lcd_panel_handle_t panel_handle = NULL;
     esp_lcd_rgb_panel_config_t panel_config = {
         .clk_src = LCD_CLK_SRC_DEFAULT,
@@ -195,26 +155,31 @@ static mp_obj_t rgbframebuffer_make_new(const mp_obj_type_t *type, size_t n_args
         panel_config.data_gpio_nums[pin_idx++] = mp_obj_get_int(items[i]);
     }
 
+    mp_printf(mp_sys_stdout_print, "RGBFrameBuffer: creating panel\n");
     ESP_ERROR_CHECK(esp_lcd_new_rgb_panel(&panel_config, &panel_handle));
 
     self->panel_handle = panel_handle;
 
+    // ESP_LOGI(TAG, "Register event callbacks");
     // esp_lcd_rgb_panel_event_callbacks_t cbs = {
     //     .on_vsync = NULL,
     // };
     // ESP_ERROR_CHECK(esp_lcd_rgb_panel_register_event_callbacks(panel_handle, &cbs, NULL));
 
+    mp_printf(mp_sys_stdout_print, "RGBFrameBuffer: initializing panel\n");
+    ESP_LOGI(TAG, "Initialize RGB LCD panel");
     ESP_ERROR_CHECK(esp_lcd_panel_reset(panel_handle));
     ESP_ERROR_CHECK(esp_lcd_panel_init(panel_handle));
 
     void *buf = NULL;
 #if 1
+    mp_printf(mp_sys_stdout_print, "RGBFrameBuffer: getting frame buffer\n");
     ESP_ERROR_CHECK(esp_lcd_rgb_panel_get_frame_buffer(panel_handle, 1, &buf));
 #else
     buf = heap_caps_malloc(EXAMPLE_LCD_H_RES * 100 * 2, MALLOC_CAP_SPIRAM);
     assert(buf);
 #endif
-
+    mp_printf(mp_sys_stdout_print, "RGBFrameBuffer: setting frame buffer\n");
     mp_get_buffer_raise(MP_OBJ_FROM_PTR(buf), &self->bufinfo, MP_BUFFER_WRITE);
 
     return self;
