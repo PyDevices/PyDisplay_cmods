@@ -93,9 +93,9 @@ mp_obj_t send_color(size_t n_args, const mp_obj_t *args) {
         len = bufinfo.len;
     }
 
-    // while (color_trans_active) {
-    // }
-    // color_trans_active = true;
+    while (color_trans_active) {
+    }
+    color_trans_active = true;
 
     esp_lcd_panel_io_tx_color(self->io_handle, cmd, buf, len);
 

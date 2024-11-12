@@ -46,7 +46,7 @@
 ///   - dc: data/command pin number
 ///   - cs: chip select pin number
 ///   - wr: write pin number
-///   - data: tuple list of data pins
+///   - data: tuple or list of data pin integers
 ///   - freq: pixel clock frequency in Hz
 ///
 
@@ -73,39 +73,56 @@ static mp_obj_t i80bus_make_new(const mp_obj_type_t *type, size_t n_args, size_t
 
     bus_obj_t *self = m_new_obj(bus_obj_t);
     self->base.type = &i80bus_type;
+    esp_err_t ret;
 
-    mp_obj_tuple_t *data_pins = MP_OBJ_TO_PTR(args[ARG_data].u_obj);
-    if (data_pins->len > 24) {
-        mp_raise_ValueError("data bus width must be <= 24");
+    mp_obj_t data = args[ARG_data].u_obj;
+    mp_obj_t *data_pins;
+    size_t data_pins_len;
+    if (mp_obj_is_type(data, &mp_type_tuple)) {
+        mp_obj_tuple_get(data, &data_pins_len, &data_pins);
+    } else if (mp_obj_is_type(data, &mp_type_list)) {
+        mp_obj_list_get(data, &data_pins_len, &data_pins);
+    } else {
+        mp_raise_ValueError("I80Bus:  data must be a tuple or list");
     }
 
-    int data_gpio_nums[24];
-    for (size_t i = 0; i < data_pins->len; i++) {
-        data_gpio_nums[i] = mp_obj_get_int(data_pins->items[i]);
-    }
-    for (size_t i = data_pins->len; i < 24; i++) {
-        data_gpio_nums[i] = -1;
+    if (data_pins_len != 8 && data_pins_len != 16) {
+        mp_raise_ValueError("I80Bus: data bus width must be 8 or 16");
     }
 
     esp_lcd_i80_bus_config_t bus_config = {
         .dc_gpio_num = args[ARG_dc].u_int,
         .wr_gpio_num = args[ARG_wr].u_int,
         .clk_src = LCD_CLK_SRC_PLL160M, // same as default in IDF5 and 0 in the enum of IDF4.4
-        .bus_width = data_pins->len,
+        .bus_width = data_pins_len,
         .max_transfer_bytes = 0,
     };
-    memcpy(bus_config.data_gpio_nums, data_gpio_nums, sizeof(data_gpio_nums));
 
-    esp_lcd_i80_bus_handle_t bus_handle = NULL;
-    ESP_ERROR_CHECK(esp_lcd_new_i80_bus(&bus_config, &bus_handle));
+    for (size_t i = 0; i < 16; i++) {
+        bus_config.data_gpio_nums[i] = -1;
+    }
+
+    for (size_t i = 0; i < data_pins_len; i++) {
+        if (mp_obj_is_int(data_pins[i])) {
+            bus_config.data_gpio_nums[i] = mp_obj_get_int(data_pins[i]);
+        } else {
+            mp_raise_ValueError("I80Bus:  data pins must be integers");
+        }
+    }
+
+    esp_lcd_i80_bus_handle_t bus_handle;
+    ret = esp_lcd_new_i80_bus(&bus_config, &bus_handle);
+    if (ret != ESP_OK) {
+        mp_raise_msg(&mp_type_OSError, "Failed to create I80 bus");
+    }
 
     esp_lcd_panel_io_i80_config_t io_config = {
         .cs_gpio_num = args[ARG_cs].u_int,
         .pclk_hz = args[ARG_freq].u_int,
         .lcd_cmd_bits = 8,
         .lcd_param_bits = 8,
-        .trans_queue_depth = 10,
-        // .on_color_trans_done = color_trans_done,
+        .trans_queue_depth = 5,
+        .on_color_trans_done = color_trans_done,
         .user_ctx = self,
         .dc_levels = {
             .dc_data_level = 1,
@@ -121,8 +138,10 @@ static mp_obj_t i80bus_make_new(const mp_obj_type_t *type, size_t n_args, size_t
             .pclk_idle_low = false,
         }
     };
-    self->io_handle = NULL;
-    ESP_ERROR_CHECK(esp_lcd_new_panel_io_i80(bus_handle, &io_config, &self->io_handle));
+    ret = esp_lcd_new_panel_io_i80(bus_handle, &io_config, &self->io_handle);
+    if (ret != ESP_OK) {
+        mp_raise_msg(&mp_type_OSError, "Failed to create I80 panel IO");
+    }
 
     return MP_OBJ_FROM_PTR(self);
 }

@@ -82,9 +82,6 @@ static mp_obj_t rgbframebuffer_make_new(const mp_obj_type_t *type, size_t n_args
     mp_arg_val_t args[MP_ARRAY_SIZE(allowed_args)];
     mp_arg_parse_all_kw_array(n_args, n_kw, all_args, MP_ARRAY_SIZE(allowed_args), allowed_args, args);
 
-    mp_printf(mp_sys_stdout_print, "RGBFrameBuffer(de=%d, vsync=%d, hsync=%d, dclk=%d, red=%p, green=%p, blue=%p, frequency=%d, width=%d, height=%d, hsync_pulse_width=%d, hsync_front_porch=%d, hsync_back_porch=%d, vsync_pulse_width=%d, vsync_front_porch=%d, vsync_back_porch=%d, hsync_idle_low=%d, vsync_idle_low=%d, de_idle_high=%d, pclk_active_high=%d, pclk_idle_high=%d)\n",
-        args[ARG_de].u_int, args[ARG_vsync].u_int, args[ARG_hsync].u_int, args[ARG_dclk].u_int, args[ARG_red].u_obj, args[ARG_green].u_obj, args[ARG_blue].u_obj, args[ARG_frequency].u_int, args[ARG_width].u_int, args[ARG_height].u_int, args[ARG_hsync_pulse_width].u_int, args[ARG_hsync_front_porch].u_int, args[ARG_hsync_back_porch].u_int, args[ARG_vsync_pulse_width].u_int, args[ARG_vsync_front_porch].u_int, args[ARG_vsync_back_porch].u_int, args[ARG_hsync_idle_low].u_bool, args[ARG_vsync_idle_low].u_bool, args[ARG_de_idle_high].u_bool, args[ARG_pclk_active_high].u_bool, args[ARG_pclk_idle_high].u_bool);
-
     rgbframebuffer_obj_t *self = m_new_obj(rgbframebuffer_obj_t);
     self->base.type = &rgbframebuffer_type;
     self->width = args[ARG_width].u_int;
@@ -155,7 +152,6 @@ static mp_obj_t rgbframebuffer_make_new(const mp_obj_type_t *type, size_t n_args
         panel_config.data_gpio_nums[pin_idx++] = mp_obj_get_int(items[i]);
     }
 
-    mp_printf(mp_sys_stdout_print, "RGBFrameBuffer: creating panel\n");
     ESP_ERROR_CHECK(esp_lcd_new_rgb_panel(&panel_config, &panel_handle));
 
     self->panel_handle = panel_handle;
@@ -166,20 +162,17 @@ static mp_obj_t rgbframebuffer_make_new(const mp_obj_type_t *type, size_t n_args
     // };
     // ESP_ERROR_CHECK(esp_lcd_rgb_panel_register_event_callbacks(panel_handle, &cbs, NULL));
 
-    mp_printf(mp_sys_stdout_print, "RGBFrameBuffer: initializing panel\n");
     ESP_LOGI(TAG, "Initialize RGB LCD panel");
     ESP_ERROR_CHECK(esp_lcd_panel_reset(panel_handle));
     ESP_ERROR_CHECK(esp_lcd_panel_init(panel_handle));
 
     void *buf = NULL;
 #if 1
-    mp_printf(mp_sys_stdout_print, "RGBFrameBuffer: getting frame buffer\n");
     ESP_ERROR_CHECK(esp_lcd_rgb_panel_get_frame_buffer(panel_handle, 1, &buf));
 #else
     buf = heap_caps_malloc(EXAMPLE_LCD_H_RES * 100 * 2, MALLOC_CAP_SPIRAM);
     assert(buf);
 #endif
-    mp_printf(mp_sys_stdout_print, "RGBFrameBuffer: setting frame buffer\n");
     mp_get_buffer_raise(MP_OBJ_FROM_PTR(buf), &self->bufinfo, MP_BUFFER_WRITE);
 
     return self;
