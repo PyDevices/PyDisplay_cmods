@@ -1,5 +1,5 @@
 # This file is to be given as 
-#     make USER_C_MODULES=../../../../busdrivers/src/pydisplay.cmake
+#     make USER_C_MODULES=../../../../PyDisplay_cmods/src/pydisplay.cmake
 # when building Micropython.
 
 if(DEFINED IDF_PATH)
@@ -10,14 +10,14 @@ if(DEFINED IDF_PATH)
 
     # Add our source files to the lib
     target_sources(usermod_spibus INTERFACE
-        ${CMAKE_CURRENT_LIST_DIR}/busdrivers/common.c
-        ${CMAKE_CURRENT_LIST_DIR}/busdrivers/spibus.c
+        ${CMAKE_CURRENT_LIST_DIR}/PyDisplay_cmods/common.c
+        ${CMAKE_CURRENT_LIST_DIR}/PyDisplay_cmods/spibus.c
         )
 
     # Add our source files to the lib
     target_sources(usermod_i80bus INTERFACE
-        ${CMAKE_CURRENT_LIST_DIR}/busdrivers/common.c
-        ${CMAKE_CURRENT_LIST_DIR}/busdrivers/i80bus.c
+        ${CMAKE_CURRENT_LIST_DIR}/PyDisplay_cmods/common.c
+        ${CMAKE_CURRENT_LIST_DIR}/PyDisplay_cmods/i80bus.c
         )
 
     # Add our source files to the lib

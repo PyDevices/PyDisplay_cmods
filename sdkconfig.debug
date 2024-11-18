@@ -1,4 +1,4 @@
-# sdkconfig file for debugging busdrivers
+# sdkconfig file for debugging PyDisplay_cmods
 # add this file to mpconfigboard.cmake
 
 CONFIG_FREERTOS_INTERRUPT_BACKTRACE=y
