@@ -1,5 +1,8 @@
-# busdrivers
-Bus Drivers for MicroPython written in C with ESP_LCD
+# PyDisplay_cmods
+MicroPython User C Modules for PyDisplay
+
+## WARNING
+This is a work in progress and very much alpha quality.  Do not use in a production environment.
 
 ## Note on ESP32 partition tables
 The partition table for the MicroPython ESP32 build is defined in one of the `partitions-*.csv` files in `micropython/ports/esp32`. The partition table is used to define the size and location of the partitions on the flash memory of the ESP32. The partition table is used by the `esptool.py` utility to flash the firmware to the ESP32.  Adding user c modules to your build may require a different partition table.  The partition table is defined in CSV format with the following columns:
