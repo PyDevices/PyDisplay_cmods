@@ -16,7 +16,6 @@
 #include "py/mphal.h"
 
 #include "rgbframebuffer.h"
-#include "common.h"
 
 
 static const char *TAG = "rgbframebuffer";
@@ -179,11 +178,9 @@ static mp_obj_t rgbframebuffer_make_new(const mp_obj_type_t *type, size_t n_args
 }
 
 
-MP_DEFINE_CONST_FUN_OBJ_2(rgbframebuffer_swap_bytes_obj, swap_bytes);
 
 static const mp_rom_map_elem_t rgbframebuffer_locals_dict_table[] = {
     {MP_ROM_QSTR(MP_QSTR_refresh), MP_ROM_PTR(&rgbframebuffer_refresh_obj)},
-    {MP_ROM_QSTR(MP_QSTR_swap_bytes), MP_ROM_PTR(&rgbframebuffer_swap_bytes_obj)},
 };
 static MP_DEFINE_CONST_DICT(rgbframebuffer_locals_dict, rgbframebuffer_locals_dict_table);
 

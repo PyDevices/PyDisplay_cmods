@@ -111,16 +111,3 @@ mp_obj_t register_callback(mp_obj_t self_in, mp_obj_t callback) {
     self->callback = callback;
     return mp_const_none;
 }
-
-mp_obj_t swap_bytes(mp_obj_t self_in, mp_obj_t data) {
-    (void) self_in;
-    mp_buffer_info_t bufinfo;
-    mp_get_buffer_raise(data, &bufinfo, MP_BUFFER_READ);
-    uint16_t *buf = (uint16_t *)bufinfo.buf;
-    size_t len = bufinfo.len / 2;
-    for (size_t i = 0; i < len; i++) {
-        buf[i] = (buf[i] >> 8) | (buf[i] << 8);
-    }
-
-    return mp_const_none;
-}

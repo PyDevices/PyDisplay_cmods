@@ -113,7 +113,7 @@ static mp_obj_t i80bus_make_new(const mp_obj_type_t *type, size_t n_args, size_t
     esp_lcd_i80_bus_handle_t bus_handle;
     ret = esp_lcd_new_i80_bus(&bus_config, &bus_handle);
     if (ret != ESP_OK) {
-        mp_raise_msg(&mp_type_OSError, "Failed to create I80 bus");
+        mp_raise_msg(&mp_type_OSError, "Failed to create I80Bus.  You must hard reset the board to release the bus.");
     }
 
     esp_lcd_panel_io_i80_config_t io_config = {
@@ -150,13 +150,11 @@ static mp_obj_t i80bus_make_new(const mp_obj_type_t *type, size_t n_args, size_t
 MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(i80bus_send_obj, 1, 3, send);
 MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(i80bus_send_color_obj, 1, 3, send_color);
 MP_DEFINE_CONST_FUN_OBJ_2(i80bus_register_callback_obj, register_callback);
-MP_DEFINE_CONST_FUN_OBJ_2(i80bus_swap_bytes_obj, swap_bytes);
 
 static const mp_rom_map_elem_t i80bus_locals_dict_table[] = {
     {MP_ROM_QSTR(MP_QSTR_send), MP_ROM_PTR(&i80bus_send_obj)},
     {MP_ROM_QSTR(MP_QSTR_send_color), MP_ROM_PTR(&i80bus_send_color_obj)},
     {MP_ROM_QSTR(MP_QSTR_register_callback), MP_ROM_PTR(&i80bus_register_callback_obj)},
-    {MP_ROM_QSTR(MP_QSTR_swap_bytes), MP_ROM_PTR(&i80bus_swap_bytes_obj)},
 };
 static MP_DEFINE_CONST_DICT(i80bus_locals_dict, i80bus_locals_dict_table);
 
