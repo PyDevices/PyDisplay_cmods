@@ -29,7 +29,8 @@ echo
 echo "To flash the firmware run:"
 echo "esptool -b 460800 --before default_reset --after hard_reset write_flash 0x0 $BUILD_DIR/firmware.bin"
 echo
-echo "Press Y to flash the firmware now:"
+echo "Put your device in bootload mode and"
+echo "press Y to flash the firmware now:"
 read -n 1 -r
 echo
 if [[ $REPLY =~ ^[Yy]$ ]]; then

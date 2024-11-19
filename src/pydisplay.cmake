@@ -10,14 +10,14 @@ if(DEFINED IDF_PATH)
 
     # Add our source files to the lib
     target_sources(usermod_spibus INTERFACE
-        ${CMAKE_CURRENT_LIST_DIR}/PyDisplay_cmods/common.c
-        ${CMAKE_CURRENT_LIST_DIR}/PyDisplay_cmods/spibus.c
+        ${CMAKE_CURRENT_LIST_DIR}/busdrivers/common.c
+        ${CMAKE_CURRENT_LIST_DIR}/busdrivers/spibus.c
         )
 
     # Add our source files to the lib
     target_sources(usermod_i80bus INTERFACE
-        ${CMAKE_CURRENT_LIST_DIR}/PyDisplay_cmods/common.c
-        ${CMAKE_CURRENT_LIST_DIR}/PyDisplay_cmods/i80bus.c
+        ${CMAKE_CURRENT_LIST_DIR}/busdrivers/common.c
+        ${CMAKE_CURRENT_LIST_DIR}/busdrivers/i80bus.c
         )
 
     # Add our source files to the lib
