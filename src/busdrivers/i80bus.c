@@ -48,6 +48,8 @@
 ///   - wr: write pin number
 ///   - data: tuple or list of data pin integers
 ///   - freq: pixel clock frequency in Hz
+///   - cmd_bits: number of bits in a command (8 or 16, default 8)
+///   - param_bits: number of bits in a parameter (8 or 16, default 8)
 ///
 
 static mp_obj_t i80bus_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *all_args)
@@ -58,14 +60,18 @@ static mp_obj_t i80bus_make_new(const mp_obj_type_t *type, size_t n_args, size_t
         ARG_wr,
         ARG_data,
         ARG_freq,
+        ARG_cmd_bits,
+        ARG_param_bits,
     };
 
     static const mp_arg_t allowed_args[] = {
-        { MP_QSTR_dc,   MP_ARG_INT  | MP_ARG_REQUIRED                      },
-        { MP_QSTR_cs,   MP_ARG_INT  | MP_ARG_REQUIRED                      },
-        { MP_QSTR_wr,   MP_ARG_INT  | MP_ARG_REQUIRED                      },
-        { MP_QSTR_data, MP_ARG_OBJ  | MP_ARG_REQUIRED                      },
-        { MP_QSTR_freq, MP_ARG_INT  | MP_ARG_KW_ONLY, {.u_int = 2000000 }  },
+        { MP_QSTR_dc,         MP_ARG_INT  | MP_ARG_REQUIRED                      },
+        { MP_QSTR_cs,         MP_ARG_INT  | MP_ARG_REQUIRED                      },
+        { MP_QSTR_wr,         MP_ARG_INT  | MP_ARG_REQUIRED                      },
+        { MP_QSTR_data,       MP_ARG_OBJ  | MP_ARG_REQUIRED                      },
+        { MP_QSTR_freq,       MP_ARG_INT  | MP_ARG_KW_ONLY, {.u_int = 2000000 }  },
+        { MP_QSTR_cmd_bits,   MP_ARG_INT  | MP_ARG_KW_ONLY, {.u_int = 8 }        },
+        { MP_QSTR_param_bits, MP_ARG_INT  | MP_ARG_KW_ONLY, {.u_int = 8 }        },
     };
 
     mp_arg_val_t args[MP_ARRAY_SIZE(allowed_args)];
@@ -73,6 +79,8 @@ static mp_obj_t i80bus_make_new(const mp_obj_type_t *type, size_t n_args, size_t
 
     bus_obj_t *self = m_new_obj(bus_obj_t);
     self->base.type = &i80bus_type;
+    self->tx_param = esp_lcd_panel_io_tx_param;
+    self->tx_color = esp_lcd_panel_io_tx_color;
     esp_err_t ret;
 
     mp_obj_t data = args[ARG_data].u_obj;
@@ -121,8 +129,8 @@ static mp_obj_t i80bus_make_new(const mp_obj_type_t *type, size_t n_args, size_t
     esp_lcd_panel_io_i80_config_t io_config = {
         .cs_gpio_num = args[ARG_cs].u_int,
         .pclk_hz = args[ARG_freq].u_int,
-        .lcd_cmd_bits = 8,  // needs to be an argument
-        .lcd_param_bits = 8,  // needs to be an argument
+        .lcd_cmd_bits = args[ARG_cmd_bits].u_int,
+        .lcd_param_bits = args[ARG_param_bits].u_int,
         .trans_queue_depth = 1,  // blocking
         .on_color_trans_done = color_trans_done,
         .user_ctx = self,
@@ -151,18 +159,16 @@ static mp_obj_t i80bus_make_new(const mp_obj_type_t *type, size_t n_args, size_t
 
 MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(i80bus_send_obj, 1, 3, send);
 MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(i80bus_send_color_obj, 1, 3, send_color);
-MP_DEFINE_CONST_FUN_OBJ_2(i80bus_register_callback_obj, register_callback);
 
 static const mp_rom_map_elem_t i80bus_locals_dict_table[] = {
     {MP_ROM_QSTR(MP_QSTR_send), MP_ROM_PTR(&i80bus_send_obj)},
     {MP_ROM_QSTR(MP_QSTR_send_color), MP_ROM_PTR(&i80bus_send_color_obj)},
-    {MP_ROM_QSTR(MP_QSTR_register_callback), MP_ROM_PTR(&i80bus_register_callback_obj)},
 };
 static MP_DEFINE_CONST_DICT(i80bus_locals_dict, i80bus_locals_dict_table);
 
 MP_DEFINE_CONST_OBJ_TYPE(
     i80bus_type,
-    MP_QSTR_I80_BUS,
+    MP_QSTR_I80BUS,
     MP_TYPE_FLAG_NONE,
     make_new, i80bus_make_new,
     locals_dict, &i80bus_locals_dict);

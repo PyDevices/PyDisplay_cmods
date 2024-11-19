@@ -24,15 +24,6 @@
 #define __SPIBUS_H__
 
 #include "py/obj.h"
-#include "esp_lcd_panel_io.h"
-
-
-typedef struct _spibus_obj_t {
-    mp_obj_base_t base;
-    esp_lcd_panel_io_handle_t io_handle;
-    mp_obj_t callback;
-    int spi_host;
-} spibus_obj_t;
 
 extern const mp_obj_type_t spibus_type;
 

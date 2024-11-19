@@ -1,7 +1,8 @@
 {
     "C_Cpp.default.compilerPath": "/usr/bin/gcc",
     "files.associations": {
-        "common.h": "c"
+        "common.h": "c",
+        "gpio.h": "c"
     }
 
 }

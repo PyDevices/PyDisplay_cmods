@@ -48,28 +48,30 @@
 ///   - baudrate: Frequency of pixel clock
 ///   - polarity: Polarity
 ///   - phase: Phase
-///   - bits: Bit-width of LCD parameter
 ///   - lsb_first: transmit LSB bit first
 ///   - sck: GPIO used for SCLK
 ///   - mosi: GPIO used for MOSI
 ///   - miso: GPIO used for MISO
 ///   - dc: GPIO used to select the D/C line, set this to -1 if the D/C line not controlled by manually pulling high/low GPIO
 ///   - cs: GPIO used for CS line
+///   - cmd_bits: number of bits in a command (8 or 16, default 8)
+///   - param_bits: number of bits in a parameter (8 or 16, default 8)
 ///
 
 static mp_obj_t spibus_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *all_args){
     enum {
-        ARG_id,           // SPI host to use
-        ARG_baudrate,            // Frequency of pixel clock
-        ARG_polarity,           // Traditional SPI mode (0~3)
-        ARG_phase,           // Traditional SPI mode (0~3)
-        ARG_bits,     // Bit-width of LCD parameter
-        ARG_lsb_first,          // transmit LSB bit first
+        ARG_id,         // SPI host to use
+        ARG_baudrate,   // Frequency of pixel clock
+        ARG_polarity,   // Signal polarity
+        ARG_phase,      // Signal phase
+        ARG_lsb_first,  // transmit LSB bit first
         ARG_sck,        // GPIO used for SCLK
-        ARG_mosi,        // GPIO used for MOSI
-        ARG_miso,        // GPIO used for MISO
-        ARG_dc,                 // GPIO used to select the D/C line, set this to -1 if the D/C line not controlled by manually pulling high/low GPIO
-        ARG_cs,                 // GPIO used for CS line
+        ARG_mosi,       // GPIO used for MOSI
+        ARG_miso,       // GPIO used for MISO
+        ARG_dc,         // GPIO used to select the D/C line, set this to -1 if the D/C line not controlled by manually pulling high/low GPIO
+        ARG_cs,         // GPIO used for CS line
+        ARG_cmd_bits,   // number of bits in a command (8 or 16, default 8)
+        ARG_param_bits, // number of bits in a parameter (8 or 16, default 8)
     };
 
     static const mp_arg_t allowed_args[] = {
@@ -77,13 +79,14 @@ static mp_obj_t spibus_make_new(const mp_obj_type_t *type, size_t n_args, size_t
         { MP_QSTR_baudrate,         MP_ARG_INT  | MP_ARG_KW_ONLY, {.u_int = 24000000 } },
         { MP_QSTR_polarity,         MP_ARG_INT  | MP_ARG_KW_ONLY, {.u_int = 0        } },
         { MP_QSTR_phase,            MP_ARG_INT  | MP_ARG_KW_ONLY, {.u_int = 0       } },
-        { MP_QSTR_bits,             MP_ARG_INT  | MP_ARG_KW_ONLY, {.u_int = 8        } },
         { MP_QSTR_lsb_first,        MP_ARG_BOOL | MP_ARG_KW_ONLY, {.u_bool = false   } },
         { MP_QSTR_sck,              MP_ARG_INT  | MP_ARG_KW_ONLY, {.u_int = -1       } },
         { MP_QSTR_mosi,             MP_ARG_INT  | MP_ARG_KW_ONLY, {.u_int = -1       } },
         { MP_QSTR_miso,             MP_ARG_INT  | MP_ARG_KW_ONLY, {.u_int = -1       } },
         { MP_QSTR_dc,               MP_ARG_INT  | MP_ARG_KW_ONLY, {.u_int = -1       } },
         { MP_QSTR_cs,               MP_ARG_INT  | MP_ARG_KW_ONLY, {.u_int = -1       } },
+        { MP_QSTR_cmd_bits,         MP_ARG_INT  | MP_ARG_KW_ONLY, {.u_int = 8        } },
+        { MP_QSTR_param_bits,       MP_ARG_INT  | MP_ARG_KW_ONLY, {.u_int = 8        } },
     };
 
     mp_arg_val_t args[MP_ARRAY_SIZE(allowed_args)];
@@ -91,6 +94,8 @@ static mp_obj_t spibus_make_new(const mp_obj_type_t *type, size_t n_args, size_t
 
     bus_obj_t *self = m_new_obj(bus_obj_t);
     self->base.type = &spibus_type;
+    self->tx_param = esp_lcd_panel_io_tx_param;
+    self->tx_color = esp_lcd_panel_io_tx_color;
     esp_err_t ret;
     int spi_host = args[ARG_id].u_int;
 
@@ -112,9 +117,9 @@ static mp_obj_t spibus_make_new(const mp_obj_type_t *type, size_t n_args, size_t
         .cs_gpio_num = args[ARG_cs].u_int,
         .pclk_hz = args[ARG_baudrate].u_int,
         .spi_mode = (args[ARG_polarity].u_int & 1) | ((args[ARG_phase].u_int & 1) << 1),
-        .lcd_cmd_bits = args[ARG_bits].u_int,
-        .lcd_param_bits = args[ARG_bits].u_int,
-        .trans_queue_depth = 10,
+        .lcd_cmd_bits = args[ARG_cmd_bits].u_int,
+        .lcd_param_bits = args[ARG_param_bits].u_int,
+        .trans_queue_depth = 1,  // blocking mode
         .on_color_trans_done = color_trans_done,
         .user_ctx = self,
         .flags.lsb_first = args[ARG_lsb_first].u_bool,
@@ -133,18 +138,16 @@ static mp_obj_t spibus_make_new(const mp_obj_type_t *type, size_t n_args, size_t
 
 MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(spibus_send_obj, 1, 3, send);
 MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(spibus_send_color_obj, 1, 3, send_color);
-MP_DEFINE_CONST_FUN_OBJ_2(spibus_register_callback_obj, register_callback);
 
 static const mp_rom_map_elem_t spibus_locals_dict_table[] = {
     {MP_ROM_QSTR(MP_QSTR_send), MP_ROM_PTR(&spibus_send_obj)},
     {MP_ROM_QSTR(MP_QSTR_send_color), MP_ROM_PTR(&spibus_send_color_obj)},
-    {MP_ROM_QSTR(MP_QSTR_register_callback), MP_ROM_PTR(&spibus_register_callback_obj)},
 };
 static MP_DEFINE_CONST_DICT(spibus_locals_dict, spibus_locals_dict_table);
 
 MP_DEFINE_CONST_OBJ_TYPE(
     spibus_type,
-    MP_QSTR_SPI_BUS,
+    MP_QSTR_SPIBUS,
     MP_TYPE_FLAG_NONE,
     make_new, spibus_make_new,
     locals_dict, &spibus_locals_dict);
