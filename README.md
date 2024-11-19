@@ -1,4 +1,4 @@
-# PyDisplay_cmods
+# pydisplay_cmods
 MicroPython User C Modules for PyDisplay
 
 ## WARNING
