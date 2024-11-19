@@ -65,7 +65,7 @@ static mp_obj_t i80bus_make_new(const mp_obj_type_t *type, size_t n_args, size_t
         { MP_QSTR_cs,   MP_ARG_INT  | MP_ARG_REQUIRED                      },
         { MP_QSTR_wr,   MP_ARG_INT  | MP_ARG_REQUIRED                      },
         { MP_QSTR_data, MP_ARG_OBJ  | MP_ARG_REQUIRED                      },
-        { MP_QSTR_freq, MP_ARG_INT  | MP_ARG_KW_ONLY, {.u_int = 10000000 } },
+        { MP_QSTR_freq, MP_ARG_INT  | MP_ARG_KW_ONLY, {.u_int = 2000000 }  },
     };
 
     mp_arg_val_t args[MP_ARRAY_SIZE(allowed_args)];
@@ -91,11 +91,13 @@ static mp_obj_t i80bus_make_new(const mp_obj_type_t *type, size_t n_args, size_t
     }
 
     esp_lcd_i80_bus_config_t bus_config = {
+        .clk_src = LCD_CLK_SRC_DEFAULT,
         .dc_gpio_num = args[ARG_dc].u_int,
         .wr_gpio_num = args[ARG_wr].u_int,
-        .clk_src = LCD_CLK_SRC_PLL160M, // same as default in IDF5 and 0 in the enum of IDF4.4
         .bus_width = data_pins_len,
-        .max_transfer_bytes = 0,
+        .max_transfer_bytes = 512,
+        // .psram_trans_align = 64, // Supported alignment: 16, 32, 64. A higher alignment can enables higher burst transfer size, thus a higher i80 bus throughput.
+        // .sram_trans_align = 4,
     };
 
     for (size_t i = 0; i < 16; i++) {
@@ -119,16 +121,16 @@ static mp_obj_t i80bus_make_new(const mp_obj_type_t *type, size_t n_args, size_t
     esp_lcd_panel_io_i80_config_t io_config = {
         .cs_gpio_num = args[ARG_cs].u_int,
         .pclk_hz = args[ARG_freq].u_int,
-        .lcd_cmd_bits = 8,
-        .lcd_param_bits = 8,
-        .trans_queue_depth = 5,
+        .lcd_cmd_bits = 8,  // needs to be an argument
+        .lcd_param_bits = 8,  // needs to be an argument
+        .trans_queue_depth = 1,  // blocking
         .on_color_trans_done = color_trans_done,
         .user_ctx = self,
         .dc_levels = {
             .dc_data_level = 1,
             .dc_cmd_level = 0,
             .dc_dummy_level = 0,
-            .dc_idle_level = 0,
+            .dc_idle_level = 1,
         },
         .flags = {
             .cs_active_high = false,
