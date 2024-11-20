@@ -14,7 +14,7 @@
 typedef struct _bus_obj_t {
     mp_obj_base_t base;
     esp_lcd_panel_io_handle_t io_handle;
-    bool transfer_done;
+    bool trans_done;
     void (*tx_param)(esp_lcd_panel_io_handle_t, int, void *, int);
     void (*tx_color)(esp_lcd_panel_io_handle_t, int, void *, int);
 } bus_obj_t;

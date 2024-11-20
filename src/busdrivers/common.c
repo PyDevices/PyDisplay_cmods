@@ -67,6 +67,9 @@ mp_obj_t send_color(size_t n_args, const mp_obj_t *args) {
         len = bufinfo.len;
     }
 
+    while (self->trans_done == false) {
+        mp_handle_pending(true);
+    }
     self->trans_done = false;
     self->tx_color(self->io_handle, cmd, buf, len); // use the function pointer
     while (self->trans_done == false) {

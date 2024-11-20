@@ -96,6 +96,7 @@ static mp_obj_t spibus_make_new(const mp_obj_type_t *type, size_t n_args, size_t
     self->base.type = &spibus_type;
     self->tx_param = esp_lcd_panel_io_tx_param;
     self->tx_color = esp_lcd_panel_io_tx_color;
+    self->trans_done = true;
     esp_err_t ret;
     int spi_host = args[ARG_id].u_int;
 

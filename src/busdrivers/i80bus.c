@@ -81,6 +81,7 @@ static mp_obj_t i80bus_make_new(const mp_obj_type_t *type, size_t n_args, size_t
     self->base.type = &i80bus_type;
     self->tx_param = esp_lcd_panel_io_tx_param;
     self->tx_color = esp_lcd_panel_io_tx_color;
+    self->trans_done = true;
     esp_err_t ret;
 
     mp_obj_t data = args[ARG_data].u_obj;
@@ -103,7 +104,7 @@ static mp_obj_t i80bus_make_new(const mp_obj_type_t *type, size_t n_args, size_t
         .dc_gpio_num = args[ARG_dc].u_int,
         .wr_gpio_num = args[ARG_wr].u_int,
         .bus_width = data_pins_len,
-        .max_transfer_bytes = 512,
+        .max_transfer_bytes = 4096,
         // .psram_trans_align = 64, // Supported alignment: 16, 32, 64. A higher alignment can enables higher burst transfer size, thus a higher i80 bus throughput.
         // .sram_trans_align = 4,
     };
@@ -131,7 +132,7 @@ static mp_obj_t i80bus_make_new(const mp_obj_type_t *type, size_t n_args, size_t
         .pclk_hz = args[ARG_freq].u_int,
         .lcd_cmd_bits = args[ARG_cmd_bits].u_int,
         .lcd_param_bits = args[ARG_param_bits].u_int,
-        .trans_queue_depth = 1,  // blocking
+        .trans_queue_depth = 10,
         .on_color_trans_done = color_trans_done,
         .user_ctx = self,
         .dc_levels = {

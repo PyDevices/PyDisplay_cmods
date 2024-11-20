@@ -1,5 +1,5 @@
 # pydisplay_cmods
-MicroPython User C Modules for PyDisplay
+MicroPython User C Modules for pydisplay
 
 ## WARNING
 This is a work in progress and very much alpha quality.  Do not use in a production environment.

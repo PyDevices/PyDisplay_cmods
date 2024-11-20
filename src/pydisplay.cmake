@@ -1,5 +1,5 @@
 # This file is to be given as 
-#     make USER_C_MODULES=../../../../PyDisplay_cmods/src/pydisplay.cmake
+#     make USER_C_MODULES=../../../../pydisplay_cmods/src/pydisplay.cmake
 # when building Micropython.
 
 if(DEFINED IDF_PATH)

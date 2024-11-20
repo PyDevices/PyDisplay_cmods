@@ -5,8 +5,11 @@ PORT_DIR=$GIT_DIR/micropython/ports/esp32
 BOARD=ESP32_GENERIC_S3
 # VARIANT=SPIRAM_OCT
 VARIANT=
-MODULES=$GIT_DIR/PyDisplay_cmods/modules.cmake
-MANIFEST=$GIT_DIR/PyDisplay/manifest.py
+# MODULES=$GIT_DIR/pydisplay_cmods/modules.cmake  # both pydisplay_cmods and lv_binding_micropython
+# MODULES=$GIT_DIR/pydisplay_cmods/src/pydisplay.cmake  # only pydisplay_cmods
+# MODULES=$GIT_DIR/lv_binding_micropython/lvgl.cmake  # only lv_binding_micropython
+MODULES=$GIT_DIR/lvmp/lvmp.cmake  # only lvmp
+MANIFEST=$GIT_DIR/pydisplay/manifest.py
 IDF_DIR=$GIT_DIR/esp-idf
 BUILD_DIR=$PORT_DIR/build
 if [ -n "$BOARD" ]; then
@@ -22,7 +25,7 @@ set -e
 pushd $PORT_DIR
 make -j BOARD=$BOARD BOARD_VARIANT=$VARIANT clean
 make -j BOARD=$BOARD BOARD_VARIANT=$VARIANT submodules
-make -j BOARD=$BOARD BOARD_VARIANT=$VARIANT all # USER_C_MODULES=$MODULES # FROZEN_MANIFEST=$MANIFEST
+make -j BOARD=$BOARD BOARD_VARIANT=$VARIANT all USER_C_MODULES=$MODULES # FROZEN_MANIFEST=$MANIFEST
 popd
 
 echo

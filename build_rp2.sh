@@ -4,8 +4,8 @@ GIT_DIR=$(pwd)/..
 PORT_DIR=$GIT_DIR/micropython/ports/rp2
 BOARD=RPI_PICO
 VARIANT=
-MODULES=$GIT_DIR/PyDisplay_cmods/modules.cmake
-MANIFEST=$GIT_DIR/PyDisplay/manifest.py
+MODULES=$GIT_DIR/pydisplay_cmods/modules.cmake
+MANIFEST=$GIT_DIR/pydisplay/manifest.py
 
 BUILD_DIR=$PORT_DIR/build
 if [ -n "$BOARD" ]; then
