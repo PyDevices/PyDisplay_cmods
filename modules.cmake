@@ -4,4 +4,4 @@
 
 
 include(${CMAKE_CURRENT_LIST_DIR}/src/pydisplay.cmake)
-include(${CMAKE_CURRENT_LIST_DIR}/../lv_binding_micropython/lvgl.cmake)
+include(${CMAKE_CURRENT_LIST_DIR}/../lvmp/lvmp.cmake)
