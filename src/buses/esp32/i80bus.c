@@ -27,17 +27,9 @@
  * THE SOFTWARE.
  */
 
-#include "esp_lcd_panel_io.h"
-#include "esp_lcd_panel_ops.h"
-#include "driver/gpio.h"
+#include "../common/common.h"
 
-#include "py/obj.h"
-#include "py/runtime.h"
-
-#include "common.h"
-#include "i80bus.h"
-#include <string.h>
-
+extern const mp_obj_type_t i80bus_type;
 
 /// i80bus
 /// Configure a i8080 parallel bus.

@@ -7,7 +7,7 @@ BOARD=ESP32_GENERIC_S3
 
 REPO_DIR=$(pwd)
 PORT_DIR=$REPO_DIR/../micropython/ports/esp32
-MODULES=$REPO_DIR/src/micropython.cmake
+MODULES=$REPO_DIR/micropython.cmake
 MANIFEST=$REPO_DIR/manifest.py
 BUILD_DIR=$PORT_DIR/build
 if [ -n "$BOARD" ]; then

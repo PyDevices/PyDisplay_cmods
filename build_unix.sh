@@ -4,7 +4,7 @@ set -e
 
 REPO_DIR=$(pwd)
 PORT_DIR=$REPO_DIR/../micropython/ports/unix
-MODULES=$REPO_DIR
+MODULES=$REPO_DIR/..
 MANIFEST=$REPO_DIR/manifest.py
 BUILD_DIR=$PORT_DIR/build-standard
 COPY_TO=~/bin/mp

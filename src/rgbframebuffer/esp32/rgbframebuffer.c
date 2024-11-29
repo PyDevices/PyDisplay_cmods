@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include "esp_lcd_panel_ops.h"
 #include "esp_lcd_panel_rgb.h"
+#include "esp_lcd_panel_io.h"
 #include "esp_err.h"
 #include "esp_log.h"
 
@@ -15,8 +16,16 @@
 #include "py/runtime.h"
 #include "py/mphal.h"
 
-#include "rgbframebuffer.h"
 
+typedef struct _rgbframebuffer_obj_t {
+    mp_obj_base_t base;                     // base class
+    esp_lcd_panel_handle_t panel_handle;    // panel handle
+    uint16_t width;                         // width of the framebuffer
+    uint16_t height;                        // height of the framebuffer
+    mp_buffer_info_t bufinfo;
+} rgbframebuffer_obj_t;
+
+extern const mp_obj_type_t rgbframebuffer_type;
 
 static const char *TAG = "rgbframebuffer";
 

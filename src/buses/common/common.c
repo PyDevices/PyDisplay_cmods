@@ -4,33 +4,7 @@
  * SPDX-License-Identifier: MIT
  */
 
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-#include <stdarg.h>
-
-#include "py/obj.h"
-#include "py/runtime.h"
-#include "py/mphal.h"
-#include "py/mpstate.h"
-#include "py/gc.h"
-#include "py/stackctrl.h"
-#include "py/nlr.h"
-#include "py/objexcept.h"
-#include "py/mpthread.h"
-#include "shared/runtime/mpirq.h"
-#include "shared/readline/readline.h"
-#include "shared/runtime/pyexec.h"
-
-#include "uart.h"
-#include "usb.h"
-#include "usb_serial_jtag.h"
-#include "modmachine.h"
-#include "modnetwork.h"
-#include "mpthreadport.h"
-
 #include "common.h"
-
 
 bool color_trans_done(void *panel_io, void *edata, void *user_ctx) {
     bus_obj_t *self = (bus_obj_t *)user_ctx;

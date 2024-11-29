@@ -27,18 +27,9 @@
  * THE SOFTWARE.
  */
 
-#include "esp_lcd_panel_io.h"
-#include "esp_lcd_panel_ops.h"
-#include "driver/gpio.h"
+#include "../common/common.h"
 
-#include "py/obj.h"
-#include "py/runtime.h"
-#include "py/mphal.h"
-
-#include "common.h"
-#include "spibus.h"
-#include <string.h>
-
+extern const mp_obj_type_t spibus_type;
 
 ///
 /// spi_bus - Configure a SPI bus.
