@@ -1,20 +1,30 @@
 #!/usr/bin/env bash
 
-GIT_DIR=$(pwd)/..
-PORT_DIR=$GIT_DIR/micropython/ports/unix
-MODULES=/home/brad/gh
-MANIFEST=$GIT_DIR/pydisplay/manifest.py
-
-BUILD_DIR=$PORT_DIR/build-standard
-
 set -e
+
+REPO_DIR=$(pwd)
+PORT_DIR=$REPO_DIR/../micropython/ports/unix
+MODULES=$REPO_DIR
+MANIFEST=$REPO_DIR/manifest.py
+BUILD_DIR=$PORT_DIR/build-standard
+COPY_TO=~/bin/mp
 
 pushd $PORT_DIR
 make -j clean
 make -j submodules
-make -j USER_C_MODULES=$MODULES # FROZEN_MANIFEST=$MANIFEST
+make -j USER_C_MODULES=$MODULES FROZEN_MANIFEST=$MANIFEST
 popd
 
 echo
-echo "The firmware is:  $BUILD_DIR/micropython"
+echo "The executable is:  $BUILD_DIR/micropython"
+echo
+
+echo "Do you want to copy the executable to $COPY_TO?"
+read -p "[y/N]: " -n 1 -r
+echo
+if [[ $REPLY =~ ^[Yy]$ ]]; then
+    mkdir -p ~/bin
+    cp $BUILD_DIR/micropython $COPY_TO
+    echo "Executable copied to $COPY_TO"
+fi
 echo

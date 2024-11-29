@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
 
-GIT_DIR=$(pwd)/..
-PORT_DIR=$GIT_DIR/micropython/ports/rp2
+set -e
+
 BOARD=RPI_PICO
 VARIANT=
-MODULES=$GIT_DIR/pydisplay_cmods/modules.cmake
-MANIFEST=$GIT_DIR/pydisplay/manifest.py
 
+REPO_DIR=$(pwd)
+PORT_DIR=$REPO_DIR/../micropython/ports/rp2
+MODULES=$REPO_DIR/src/micropython.cmake
+MANIFEST=$REPO_DIR/manifest.py
 BUILD_DIR=$PORT_DIR/build
 if [ -n "$BOARD" ]; then
     BUILD_DIR=$BUILD_DIR-$BOARD
@@ -14,8 +16,6 @@ fi
 if [ -n "$VARIANT" ]; then
     BUILD_DIR=$BUILD_DIR-$VARIANT
 fi
-
-set -e
 
 pushd $PORT_DIR
 make -j BOARD=$BOARD BOARD_VARIANT=$VARIANT clean

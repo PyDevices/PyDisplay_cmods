@@ -2,6 +2,8 @@
 #     make USER_C_MODULES=../../../../pydisplay_cmods/src/pydisplay.cmake
 # when building Micropython.
 
+set(CMOD_DIR ${CMAKE_CURRENT_LIST_DIR})
+
 if(DEFINED IDF_PATH)
     # Create an INTERFACE library for our C module.
     add_library(usermod_spibus INTERFACE)
@@ -10,37 +12,37 @@ if(DEFINED IDF_PATH)
 
     # Add our source files to the lib
     target_sources(usermod_spibus INTERFACE
-        ${CMAKE_CURRENT_LIST_DIR}/busdrivers/common.c
-        ${CMAKE_CURRENT_LIST_DIR}/busdrivers/spibus.c
+        ${CMOD_DIR}/busdrivers/common.c
+        ${CMOD_DIR}/busdrivers/spibus.c
         )
 
     # Add our source files to the lib
     target_sources(usermod_i80bus INTERFACE
-        ${CMAKE_CURRENT_LIST_DIR}/busdrivers/common.c
-        ${CMAKE_CURRENT_LIST_DIR}/busdrivers/i80bus.c
+        ${CMOD_DIR}/busdrivers/common.c
+        ${CMOD_DIR}/busdrivers/i80bus.c
         )
 
     # Add our source files to the lib
     target_sources(usermod_rgbframebuffer INTERFACE
-        ${CMAKE_CURRENT_LIST_DIR}/rgbframebuffer/rgbframebuffer.c
+        ${CMOD_DIR}/rgbframebuffer/rgbframebuffer.c
         )
 
     # Add include directories.
     target_include_directories(usermod_spibus INTERFACE
         ${IDF_PATH}/components/esp_lcd/include/
-        ${CMAKE_CURRENT_LIST_DIR}
+        ${CMOD_DIR}
         )
 
     # Add include directories.
     target_include_directories(usermod_i80bus INTERFACE
         ${IDF_PATH}/components/esp_lcd/include/
-        ${CMAKE_CURRENT_LIST_DIR}
+        ${CMOD_DIR}
         )
 
     # Add include directories.
     target_include_directories(usermod_rgbframebuffer INTERFACE
         ${IDF_PATH}/components/esp_lcd/include/
-        ${CMAKE_CURRENT_LIST_DIR}
+        ${CMOD_DIR}
         )
 
     # Link our INTERFACE library to the usermod target.
@@ -52,7 +54,7 @@ add_library(usermod_byteswap INTERFACE)
 
 # Add our source files to the lib
 target_sources(usermod_byteswap INTERFACE
-    ${CMAKE_CURRENT_LIST_DIR}/byteswap/byteswap.c
+    ${CMOD_DIR}/byteswap/byteswap.c
     )
 
 # Link our INTERFACE library to the usermod target.
