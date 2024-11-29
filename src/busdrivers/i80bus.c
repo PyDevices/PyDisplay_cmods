@@ -133,7 +133,9 @@ static mp_obj_t i80bus_make_new(const mp_obj_type_t *type, size_t n_args, size_t
         .lcd_cmd_bits = args[ARG_cmd_bits].u_int,
         .lcd_param_bits = args[ARG_param_bits].u_int,
         .trans_queue_depth = 10,
-        .on_color_trans_done = color_trans_done,
+        // Casting color_trans_done to match the ESP-IDF callback signature.
+        // The function ignores the panel_io and edata parameters and remains generic for portability.
+        .on_color_trans_done = (_Bool (*)(struct esp_lcd_panel_io_t *, esp_lcd_panel_io_event_data_t *, void *))color_trans_done,
         .user_ctx = self,
         .dc_levels = {
             .dc_data_level = 1,

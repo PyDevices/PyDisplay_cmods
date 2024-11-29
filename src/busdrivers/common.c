@@ -50,8 +50,10 @@ mp_obj_t send(size_t n_args, const mp_obj_t *args) {
         len = bufinfo.len;
     }
 
-    self->tx_param(self->io_handle, cmd, buf, len);
-
+    int ret = self->tx_param(self->io_handle, cmd, buf, len);
+    if (ret != 0) {
+        mp_raise_msg(&mp_type_OSError, "Failed to send data");
+    }
     return mp_const_none;
 }
 
@@ -71,7 +73,10 @@ mp_obj_t send_color(size_t n_args, const mp_obj_t *args) {
         mp_handle_pending(true);
     }
     self->trans_done = false;
-    self->tx_color(self->io_handle, cmd, buf, len); // use the function pointer
+    int ret = self->tx_color(self->io_handle, cmd, buf, len);
+    if (ret != 0) {
+        mp_raise_msg(&mp_type_OSError, "Failed to send color data");
+    }
     while (self->trans_done == false) {
         mp_handle_pending(true);
     }

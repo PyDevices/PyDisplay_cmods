@@ -15,9 +15,10 @@ typedef struct _bus_obj_t {
     mp_obj_base_t base;
     esp_lcd_panel_io_handle_t io_handle;
     bool trans_done;
-    void (*tx_param)(esp_lcd_panel_io_handle_t, int, void *, int);
-    void (*tx_color)(esp_lcd_panel_io_handle_t, int, void *, int);
+    esp_err_t (*tx_param)(esp_lcd_panel_io_handle_t, int, const void *, size_t);
+    esp_err_t (*tx_color)(esp_lcd_panel_io_handle_t, int, const void *, size_t);
 } bus_obj_t;
+
 
 bool color_trans_done(void *panel_io, void *edata, void *user_ctx);
 mp_obj_t send(size_t n_args, const mp_obj_t *args);
