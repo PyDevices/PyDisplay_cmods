@@ -15,6 +15,7 @@
 #include "py/obj.h"
 #include "py/runtime.h"
 #include "py/mphal.h"
+#include "py/objarray.h"
 
 
 typedef struct _rgbframebuffer_obj_t {
@@ -26,8 +27,6 @@ typedef struct _rgbframebuffer_obj_t {
 } rgbframebuffer_obj_t;
 
 extern const mp_obj_type_t rgbframebuffer_type;
-
-static const char *TAG = "rgbframebuffer";
 
 static mp_obj_t rgbframebuffer_refresh(mp_obj_t self_in, mp_obj_t buffer){
     rgbframebuffer_obj_t *self = MP_OBJ_TO_PTR(self_in);
@@ -42,8 +41,11 @@ MP_DEFINE_CONST_FUN_OBJ_2(rgbframebuffer_refresh_obj, rgbframebuffer_refresh);
 
 static mp_int_t rgbframebuffer_get_buffer(mp_obj_t self_in, mp_buffer_info_t *bufinfo, mp_uint_t flags) {
     rgbframebuffer_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    if (flags & MP_BUFFER_WRITE) {
+        return 1;
+    }
     *bufinfo = self->bufinfo;
-    bufinfo->typecode = 'H';
+    bufinfo->typecode = "H";
     return 0;
 }
 
@@ -95,8 +97,7 @@ static mp_obj_t rgbframebuffer_make_new(const mp_obj_type_t *type, size_t n_args
     self->width = args[ARG_width].u_int;
     self->height = args[ARG_height].u_int;
     
-    ESP_LOGI(TAG, "Install RGB LCD panel driver");
-    esp_lcd_panel_handle_t panel_handle = NULL;
+    mp_printf(&mp_plat_print, "RGB Framebuffer initializing with width %d and height %d\n", self->width, self->height);
     esp_lcd_rgb_panel_config_t panel_config = {
         .clk_src = LCD_CLK_SRC_DEFAULT,
         .timings = {
@@ -117,13 +118,11 @@ static mp_obj_t rgbframebuffer_make_new(const mp_obj_type_t *type, size_t n_args
                 .pclk_idle_high = args[ARG_pclk_idle_high].u_bool,
             },
         },
-        .data_width = 16, // RGB565 in parallel mode, thus 16bit in width
+        .data_width = 16,
         .bits_per_pixel = 16,
         .num_fbs = 1,
-#if CONFIG_EXAMPLE_USE_BOUNCE_BUFFER
-        .bounce_buffer_size_px = 10 * args[ARG_width].u_int,
-#endif
-        .sram_trans_align = 64,
+        .bounce_buffer_size_px = 0,
+        .sram_trans_align = 8,
         .psram_trans_align = 64,
         .hsync_gpio_num = args[ARG_hsync].u_int,
         .vsync_gpio_num = args[ARG_vsync].u_int,
@@ -133,7 +132,7 @@ static mp_obj_t rgbframebuffer_make_new(const mp_obj_type_t *type, size_t n_args
         .flags = {
             .disp_active_low = false,
             .refresh_on_demand = false,
-            .fb_in_psram = false,
+            .fb_in_psram = true,
             .double_fb = false,
             .no_fb = false,
             .bb_invalidate_cache = false,
@@ -160,30 +159,44 @@ static mp_obj_t rgbframebuffer_make_new(const mp_obj_type_t *type, size_t n_args
         panel_config.data_gpio_nums[pin_idx++] = mp_obj_get_int(items[i]);
     }
 
-    ESP_ERROR_CHECK(esp_lcd_new_rgb_panel(&panel_config, &panel_handle));
+    mp_printf(&mp_plat_print, "RGB Framebuffer initializing with %d data pins\n", pin_idx);
+    esp_err_t ret = esp_lcd_new_rgb_panel(&panel_config, &self->panel_handle);
+    if (ret != 0) {
+        mp_raise_msg(&mp_type_RuntimeError, "Failed to initialize RGB LCD panel");
+    }
 
-    self->panel_handle = panel_handle;
+    mp_printf(&mp_plat_print, "RGB Framebuffer resetting RGB LCD panel\n");
+    esp_err_t ret = esp_lcd_panel_reset(self->panel_handle);
+    if (ret != 0) {
+        mp_raise_msg(&mp_type_RuntimeError, "Failed to reset RGB LCD panel");
+    }
 
-    // ESP_LOGI(TAG, "Register event callbacks");
-    // esp_lcd_rgb_panel_event_callbacks_t cbs = {
-    //     .on_vsync = NULL,
-    // };
-    // ESP_ERROR_CHECK(esp_lcd_rgb_panel_register_event_callbacks(panel_handle, &cbs, NULL));
+    mp_printf(&mp_plat_print, "RGB Framebuffer initializing RGB LCD panel\n");
+    esp_err_t ret = esp_lcd_panel_init(self->panel_handle);
+    if (ret != 0) {
+        mp_raise_msg(&mp_type_RuntimeError, "Failed to initialize RGB LCD panel");
+    }
 
-    ESP_LOGI(TAG, "Initialize RGB LCD panel");
-    ESP_ERROR_CHECK(esp_lcd_panel_reset(panel_handle));
-    ESP_ERROR_CHECK(esp_lcd_panel_init(panel_handle));
+    mp_printf(&mp_plat_print, "RGB Framebuffer clearing RGB LCD panel\n");
+    uint16_t color = 0;
+    esp_err_t ret = self->panel_handle->draw_bitmap(self->panel_handle, 0, 0, 1, 1, &color);
+    if (ret != 0) {
+        mp_raise_msg(&mp_type_RuntimeError, "Failed to draw bitmap on RGB LCD panel");
+    }
 
-    void *buf = NULL;
-#if 1
-    ESP_ERROR_CHECK(esp_lcd_rgb_panel_get_frame_buffer(panel_handle, 1, &buf));
-#else
-    buf = heap_caps_malloc(EXAMPLE_LCD_H_RES * 100 * 2, MALLOC_CAP_SPIRAM);
-    assert(buf);
-#endif
-    mp_get_buffer_raise(MP_OBJ_FROM_PTR(buf), &self->bufinfo, MP_BUFFER_WRITE);
+    mp_printf(&mp_plat_print, "RGB Framebuffer getting framebuffer\n");
+    void *buf;
+    esp_err_t ret = esp_lcd_rgb_panel_get_frame_buffer(self->panel_handle, 1, &buf);
+    if (ret != 0) {
+        mp_raise_msg(&mp_type_RuntimeError, "Failed to get framebuffer from RGB LCD panel");
+    }
+    self->bufinfo.buf = (uint8_t *)buf;
+    self->bufinfo.len = 2 * (panel_config->timings.h_res * panel_config->timings.v_res);
+    self->bufinfo.typecode = "H" | MP_OBJ_ARRAY_TYPECODE_FLAG_RW;
 
-    return self;
+    mp_printf(&mp_plat_print, "RGB Framebuffer initialized\n");
+
+    return MP_OBJ_FROM_PTR(self);
 }
 
 
