@@ -4,6 +4,17 @@
  * SPDX-License-Identifier: MIT
  */
 
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+#include <stdarg.h>
+
+#include "py/obj.h"
+#include "py/runtime.h"
+#include "py/mphal.h"
+#include "py/objexcept.h"
+#include "shared/runtime/pyexec.h"
+
 #include "common.h"
 
 bool color_trans_done(void *panel_io, void *edata, void *user_ctx) {
