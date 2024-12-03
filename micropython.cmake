@@ -1,8 +1,5 @@
 # When building Micropython, this file is to be given as:
-#   for esp32:
-#     make USER_C_MODULES=../../../../pydisplay_cmods/micropython.cmake
-#   for rp2 and most other (CMake-based) ports:
-#     make USER_C_MODULES=../../../pydisplay_cmods/micropython.cmake
+#     make USER_C_MODULES=<path to this directory>/micropython.cmake
 
 set(CMOD_DIR ${CMAKE_CURRENT_LIST_DIR})
 
