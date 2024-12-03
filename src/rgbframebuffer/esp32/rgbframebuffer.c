@@ -16,6 +16,7 @@
 #include "py/runtime.h"
 #include "py/mphal.h"
 #include "py/objarray.h"
+#include "py/binary.h"
 
 
 typedef struct _rgbframebuffer_obj_t {
@@ -45,7 +46,7 @@ static mp_int_t rgbframebuffer_get_buffer(mp_obj_t self_in, mp_buffer_info_t *bu
         return 1;
     }
     *bufinfo = self->bufinfo;
-    bufinfo->typecode = "H";
+    bufinfo->typecode = BYTEARRAY_TYPECODE;
     return 0;
 }
 
@@ -96,8 +97,8 @@ static mp_obj_t rgbframebuffer_make_new(const mp_obj_type_t *type, size_t n_args
     self->base.type = &rgbframebuffer_type;
     self->width = args[ARG_width].u_int;
     self->height = args[ARG_height].u_int;
-    
-    mp_printf(&mp_plat_print, "RGB Framebuffer initializing with width %d and height %d\n", self->width, self->height);
+
+    mp_printf(&mp_plat_print, "RGB Framebuffer initializing...\n");
     esp_lcd_rgb_panel_config_t panel_config = {
         .clk_src = LCD_CLK_SRC_DEFAULT,
         .timings = {
@@ -118,7 +119,6 @@ static mp_obj_t rgbframebuffer_make_new(const mp_obj_type_t *type, size_t n_args
                 .pclk_idle_high = args[ARG_pclk_idle_high].u_bool,
             },
         },
-        .data_width = 16,
         .bits_per_pixel = 16,
         .num_fbs = 1,
         .bounce_buffer_size_px = 0,
@@ -139,60 +139,65 @@ static mp_obj_t rgbframebuffer_make_new(const mp_obj_type_t *type, size_t n_args
         },
     };
 
-    // Extract the pins from the tuples
-    size_t pin_idx = 0;
-    mp_obj_t *items;
-    size_t len;
+    mp_printf(&mp_plat_print, "RGB Framebuffer assigning data_gpio_nums\n");
 
-    mp_obj_get_array(args[ARG_blue].u_obj, &len, &items);
-    for (size_t i = 0; i < len; i++) {
-        panel_config.data_gpio_nums[pin_idx++] = mp_obj_get_int(items[i]);
+    mp_obj_tuple_t *blue = MP_OBJ_TO_PTR(args[ARG_blue].u_obj);
+    mp_obj_tuple_t *green = MP_OBJ_TO_PTR(args[ARG_green].u_obj);
+    mp_obj_tuple_t *red = MP_OBJ_TO_PTR(args[ARG_red].u_obj);
+    if (blue->len != 5 || green->len != 6 || red->len != 5) {
+        mp_raise_ValueError("Expected blue, green, and red to have lengths 5, 6, and 5 respectively");
     }
 
-    mp_obj_get_array(args[ARG_green].u_obj, &len, &items);
-    for (size_t i = 0; i < len; i++) {
-        panel_config.data_gpio_nums[pin_idx++] = mp_obj_get_int(items[i]);
+    int idx = 0;
+    for (int i = 0; i < blue->len; i++) {
+        panel_config.data_gpio_nums[idx++] = mp_obj_get_int(blue->items[i]);
     }
 
-    mp_obj_get_array(args[ARG_red].u_obj, &len, &items);
-    for (size_t i = 0; i < len; i++) {
-        panel_config.data_gpio_nums[pin_idx++] = mp_obj_get_int(items[i]);
+    for (int i = 0; i < green->len; i++) {
+        panel_config.data_gpio_nums[idx++] = mp_obj_get_int(green->items[i]);
     }
 
-    mp_printf(&mp_plat_print, "RGB Framebuffer initializing with %d data pins\n", pin_idx);
-    esp_err_t ret = esp_lcd_new_rgb_panel(&panel_config, &self->panel_handle);
+    for (int i = 0; i < red->len; i++) {
+        panel_config.data_gpio_nums[idx++] = mp_obj_get_int(red->items[i]);
+    }
+    panel_config.data_width = 16;
+
+    esp_err_t ret;
+
+    mp_printf(&mp_plat_print, "RGB Framebuffer creating RGB LCD panel\n");
+    ret = esp_lcd_new_rgb_panel(&panel_config, &self->panel_handle);
     if (ret != 0) {
         mp_raise_msg(&mp_type_RuntimeError, "Failed to initialize RGB LCD panel");
     }
 
     mp_printf(&mp_plat_print, "RGB Framebuffer resetting RGB LCD panel\n");
-    esp_err_t ret = esp_lcd_panel_reset(self->panel_handle);
+    ret = esp_lcd_panel_reset(self->panel_handle);
     if (ret != 0) {
         mp_raise_msg(&mp_type_RuntimeError, "Failed to reset RGB LCD panel");
     }
 
     mp_printf(&mp_plat_print, "RGB Framebuffer initializing RGB LCD panel\n");
-    esp_err_t ret = esp_lcd_panel_init(self->panel_handle);
+    ret = esp_lcd_panel_init(self->panel_handle);
     if (ret != 0) {
         mp_raise_msg(&mp_type_RuntimeError, "Failed to initialize RGB LCD panel");
     }
 
     mp_printf(&mp_plat_print, "RGB Framebuffer clearing RGB LCD panel\n");
     uint16_t color = 0;
-    esp_err_t ret = self->panel_handle->draw_bitmap(self->panel_handle, 0, 0, 1, 1, &color);
+    ret = esp_lcd_panel_draw_bitmap(self->panel_handle, 0, 0, 1, 1, &color);
     if (ret != 0) {
         mp_raise_msg(&mp_type_RuntimeError, "Failed to draw bitmap on RGB LCD panel");
     }
 
     mp_printf(&mp_plat_print, "RGB Framebuffer getting framebuffer\n");
     void *buf;
-    esp_err_t ret = esp_lcd_rgb_panel_get_frame_buffer(self->panel_handle, 1, &buf);
+    ret = esp_lcd_rgb_panel_get_frame_buffer(self->panel_handle, 1, &buf);
     if (ret != 0) {
         mp_raise_msg(&mp_type_RuntimeError, "Failed to get framebuffer from RGB LCD panel");
     }
     self->bufinfo.buf = (uint8_t *)buf;
-    self->bufinfo.len = 2 * (panel_config->timings.h_res * panel_config->timings.v_res);
-    self->bufinfo.typecode = "H" | MP_OBJ_ARRAY_TYPECODE_FLAG_RW;
+    self->bufinfo.len = 2 * (panel_config.timings.h_res * panel_config.timings.v_res);
+    self->bufinfo.typecode = BYTEARRAY_TYPECODE | MP_OBJ_ARRAY_TYPECODE_FLAG_RW;
 
     mp_printf(&mp_plat_print, "RGB Framebuffer initialized\n");
 

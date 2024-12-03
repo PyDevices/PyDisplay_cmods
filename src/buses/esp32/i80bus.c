@@ -113,7 +113,8 @@ static mp_obj_t i80bus_make_new(const mp_obj_type_t *type, size_t n_args, size_t
         }
     }
 
-    ret = esp_lcd_new_i80_bus(&bus_config, (esp_lcd_i80_bus_handle_t *)&self->bus_handle);
+    esp_lcd_i80_bus_handle_t bus_handle = NULL;
+    ret = esp_lcd_new_i80_bus(&bus_config, &bus_handle);
     if (ret != ESP_OK) {
         mp_raise_msg(&mp_type_OSError, "Failed to create I80Bus.  You must hard reset the board to release the bus.");
     }
@@ -142,7 +143,7 @@ static mp_obj_t i80bus_make_new(const mp_obj_type_t *type, size_t n_args, size_t
             .pclk_idle_low = false,
         }
     };
-    ret = esp_lcd_new_panel_io_i80((esp_lcd_i80_bus_handle_t)self->bus_handle, &io_config, &self->io_handle);
+    ret = esp_lcd_new_panel_io_i80(bus_handle, &io_config, &self->io_handle);
     if (ret != ESP_OK) {
         mp_raise_msg(&mp_type_OSError, "Failed to create I80 panel IO");
     }
