@@ -6,8 +6,6 @@
 
 set(CMOD_DIR ${CMAKE_CURRENT_LIST_DIR})
 
-
-
 add_library(usermod_pydisplay INTERFACE)
 
 target_sources(usermod_pydisplay INTERFACE
