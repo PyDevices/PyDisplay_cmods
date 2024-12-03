@@ -3,7 +3,7 @@
 set -e
 
 BOARD=ESP32_GENERIC_S3
-# VARIANT=SPIRAM_OCT
+VARIANT=SPIRAM_OCT
 
 REPO_DIR=$(pwd)
 PORT_DIR=$REPO_DIR/../micropython/ports/esp32
