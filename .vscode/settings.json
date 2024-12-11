@@ -2,7 +2,11 @@
     "C_Cpp.default.compilerPath": "/usr/bin/gcc",
     "files.associations": {
         "common.h": "c",
-        "gpio.h": "c"
+        "gpio.h": "c",
+        "obj.h": "c",
+        "mpprint.h": "c",
+        "qstr.h": "c",
+        "cache.h": "c"
     }
 
 }

@@ -11,6 +11,7 @@
 #include "esp_lcd_panel_io.h"
 #include "esp_err.h"
 #include "esp_log.h"
+#include "rom/cache.h"
 
 #include "py/obj.h"
 #include "py/runtime.h"
@@ -28,39 +29,6 @@ typedef struct _rgbframebuffer_obj_t {
 } rgbframebuffer_obj_t;
 
 extern const mp_obj_type_t rgbframebuffer_type;
-
-static mp_obj_t rgbframebuffer_refresh(mp_obj_t self_in, mp_obj_t buffer){
-    rgbframebuffer_obj_t *self = MP_OBJ_TO_PTR(self_in);
-    mp_buffer_info_t bufinfo;
-    mp_get_buffer_raise(buffer, &bufinfo, MP_BUFFER_WRITE);
-    void *buf = bufinfo.buf;
-    esp_lcd_panel_draw_bitmap(self->panel_handle, 0, 0, self->width + 1, self->height + 1, buf);
-    // call a done callback if desired
-    return mp_const_none;
-}
-MP_DEFINE_CONST_FUN_OBJ_2(rgbframebuffer_refresh_obj, rgbframebuffer_refresh);
-
-static mp_int_t rgbframebuffer_get_buffer(mp_obj_t self_in, mp_buffer_info_t *bufinfo, mp_uint_t flags) {
-    rgbframebuffer_obj_t *self = MP_OBJ_TO_PTR(self_in);
-    if (flags & MP_BUFFER_WRITE) {
-        return 1;
-    }
-    *bufinfo = self->bufinfo;
-    bufinfo->typecode = BYTEARRAY_TYPECODE;
-    return 0;
-}
-
-mp_obj_t rgbframebuffer_attr(mp_obj_t self_in, qstr attr, mp_obj_t *dest) {
-    rgbframebuffer_obj_t *self = MP_OBJ_TO_PTR(self_in);
-    if (dest[0] == MP_OBJ_NULL) {
-        if (attr == MP_QSTR_width) {
-            dest[0] = MP_OBJ_NEW_SMALL_INT(self->width);
-        } else if (attr == MP_QSTR_height) {
-            dest[0] = MP_OBJ_NEW_SMALL_INT(self->height);
-        }
-    }
-    return mp_const_none;
-}
 
 static mp_obj_t rgbframebuffer_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *all_args) {
     enum { ARG_de, ARG_vsync, ARG_hsync, ARG_dclk, ARG_red, ARG_green, ARG_blue, ARG_frequency, ARG_width, ARG_height, ARG_hsync_pulse_width, ARG_hsync_front_porch, ARG_hsync_back_porch,
@@ -97,6 +65,7 @@ static mp_obj_t rgbframebuffer_make_new(const mp_obj_type_t *type, size_t n_args
     self->base.type = &rgbframebuffer_type;
     self->width = args[ARG_width].u_int;
     self->height = args[ARG_height].u_int;
+    esp_err_t ret;
 
     mp_printf(&mp_plat_print, "RGB Framebuffer initializing...\n");
     esp_lcd_rgb_panel_config_t panel_config = {
@@ -139,8 +108,6 @@ static mp_obj_t rgbframebuffer_make_new(const mp_obj_type_t *type, size_t n_args
         },
     };
 
-    mp_printf(&mp_plat_print, "RGB Framebuffer assigning data_gpio_nums\n");
-
     mp_obj_tuple_t *blue = MP_OBJ_TO_PTR(args[ARG_blue].u_obj);
     mp_obj_tuple_t *green = MP_OBJ_TO_PTR(args[ARG_green].u_obj);
     mp_obj_tuple_t *red = MP_OBJ_TO_PTR(args[ARG_red].u_obj);
@@ -162,34 +129,27 @@ static mp_obj_t rgbframebuffer_make_new(const mp_obj_type_t *type, size_t n_args
     }
     panel_config.data_width = 16;
 
-    esp_err_t ret;
-
-    mp_printf(&mp_plat_print, "RGB Framebuffer creating RGB LCD panel\n");
     ret = esp_lcd_new_rgb_panel(&panel_config, &self->panel_handle);
     if (ret != 0) {
         mp_raise_msg(&mp_type_RuntimeError, "Failed to initialize RGB LCD panel");
     }
 
-    mp_printf(&mp_plat_print, "RGB Framebuffer resetting RGB LCD panel\n");
     ret = esp_lcd_panel_reset(self->panel_handle);
     if (ret != 0) {
         mp_raise_msg(&mp_type_RuntimeError, "Failed to reset RGB LCD panel");
     }
 
-    mp_printf(&mp_plat_print, "RGB Framebuffer initializing RGB LCD panel\n");
     ret = esp_lcd_panel_init(self->panel_handle);
     if (ret != 0) {
         mp_raise_msg(&mp_type_RuntimeError, "Failed to initialize RGB LCD panel");
     }
 
-    mp_printf(&mp_plat_print, "RGB Framebuffer clearing RGB LCD panel\n");
-    uint16_t color = 0;
+    uint16_t color = 0xffff;
     ret = esp_lcd_panel_draw_bitmap(self->panel_handle, 0, 0, 1, 1, &color);
     if (ret != 0) {
         mp_raise_msg(&mp_type_RuntimeError, "Failed to draw bitmap on RGB LCD panel");
     }
 
-    mp_printf(&mp_plat_print, "RGB Framebuffer getting framebuffer\n");
     void *buf;
     ret = esp_lcd_rgb_panel_get_frame_buffer(self->panel_handle, 1, &buf);
     if (ret != 0) {
@@ -197,13 +157,41 @@ static mp_obj_t rgbframebuffer_make_new(const mp_obj_type_t *type, size_t n_args
     }
     self->bufinfo.buf = (uint8_t *)buf;
     self->bufinfo.len = 2 * (panel_config.timings.h_res * panel_config.timings.v_res);
-    self->bufinfo.typecode = BYTEARRAY_TYPECODE | MP_OBJ_ARRAY_TYPECODE_FLAG_RW;
+    self->bufinfo.typecode = 'B';
 
     mp_printf(&mp_plat_print, "RGB Framebuffer initialized\n");
 
     return MP_OBJ_FROM_PTR(self);
 }
 
+static mp_int_t rgbframebuffer_get_buffer(mp_obj_t self_in, mp_buffer_info_t *bufinfo, mp_uint_t flags) {
+    rgbframebuffer_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    *bufinfo = self->bufinfo;
+    return 0;
+}
+
+static mp_obj_t rgbframebuffer_attr(mp_obj_t self_in, qstr attr, mp_obj_t *dest) {
+    rgbframebuffer_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    if (dest[0] == MP_OBJ_NULL) {
+        if (attr == MP_QSTR_width) {
+            dest[0] = MP_OBJ_NEW_SMALL_INT(self->width);
+        } else if (attr == MP_QSTR_height) {
+            dest[0] = MP_OBJ_NEW_SMALL_INT(self->height);
+        } else {
+            // Continue lookup in locals_dict.
+            dest[1] = MP_OBJ_SENTINEL;
+        }
+    }
+    return mp_const_none;
+}
+
+static mp_obj_t rgbframebuffer_refresh(mp_obj_t self_in){
+    rgbframebuffer_obj_t *self = MP_OBJ_TO_PTR(self_in);
+    Cache_WriteBack_Addr((uint32_t)(self->bufinfo.buf), self->bufinfo.len);
+    // call a done callback if desired
+    return mp_const_none;
+}
+MP_DEFINE_CONST_FUN_OBJ_1(rgbframebuffer_refresh_obj, rgbframebuffer_refresh);
 
 
 static const mp_rom_map_elem_t rgbframebuffer_locals_dict_table[] = {
@@ -216,9 +204,9 @@ MP_DEFINE_CONST_OBJ_TYPE(
     MP_QSTR_RGBFrameBuffer,
     MP_TYPE_FLAG_HAS_SPECIAL_ACCESSORS,
     make_new, rgbframebuffer_make_new,
-    locals_dict, &rgbframebuffer_locals_dict,
     buffer, rgbframebuffer_get_buffer,
-    attr, rgbframebuffer_attr);
+    attr, rgbframebuffer_attr,
+    locals_dict, &rgbframebuffer_locals_dict);
 
 
 static const mp_map_elem_t rgbframebuffer_module_globals_table[] = {
